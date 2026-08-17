@@ -1057,6 +1057,7 @@ en:
     invalid_password: Invalid password.
     inventory: Inventory
     invitation_accepted: Invitation accepted!
+    invitation_expired: This invitation has expired. Invite them again to send a new one.
     invitation_mailer:
       greeting: Hi %{user_name},
       invitation_accepted:
