@@ -1557,18 +1557,11 @@
       "company": {
         "name": {
           "placeholder": "Acme Industries"
-        },
-        "external_id": {
-          "help": "Your own reference for this business, unique within the store.",
-          "placeholder": "ACME-001"
         }
       },
       "company_location": {
         "name": {
           "placeholder": "Head office"
-        },
-        "external_id": {
-          "help": "Your own reference for this branch."
         }
       },
       "company_contact": {
@@ -1716,6 +1709,9 @@
           "help": "Never charge less than the first, or more than the second. Each applies only to sales in its own currency; leave a currency empty to charge it unbounded.",
           "label": "Floor and cap (optional)"
         }
+      },
+      "external_references": {
+        "label": "External references"
       }
     },
     "delivery_profiles": {

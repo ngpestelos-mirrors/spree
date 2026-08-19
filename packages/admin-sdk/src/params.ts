@@ -395,6 +395,7 @@ export interface OrderCreateParams {
 }
 
 export interface OrderUpdateParams {
+  external_references?: ExternalReferencesParams
   email?: string
   customer_id?: string
   customer_note?: string
@@ -610,6 +611,7 @@ export interface ProductPublicationInput {
 }
 
 export interface ProductCreateParams {
+  external_references?: ExternalReferencesParams
   name: string
   /** Rich text HTML. Reads come back as this (plain text) plus `description_html`. */
   description?: string
@@ -640,6 +642,7 @@ export interface ProductCreateParams {
 }
 
 export interface ProductUpdateParams {
+  external_references?: ExternalReferencesParams
   name?: string
   /** Rich text HTML. Reads come back as this (plain text) plus `description_html`. */
   description?: string
@@ -702,6 +705,7 @@ export interface ProductVariantInput {
 }
 
 export interface CategoryCreateParams {
+  external_references?: ExternalReferencesParams
   name: string
   /** Prefixed ID of the parent category. Omit or null for a top-level category. */
   parent_id?: string | null
@@ -718,6 +722,7 @@ export interface CategoryCreateParams {
 }
 
 export interface CategoryUpdateParams {
+  external_references?: ExternalReferencesParams
   name?: string
   /** Prefixed ID of the parent category, or null to move it to the top level. */
   parent_id?: string | null
@@ -875,6 +880,7 @@ export interface VariantStockLevel {
 }
 
 export interface VariantCreateParams {
+  external_references?: ExternalReferencesParams
   sku?: string
   /** Decimal amount; see `VariantPrice.amount` for the string rationale. */
   cost_price?: string | number
@@ -905,6 +911,7 @@ export interface VariantCreateParams {
 }
 
 export interface VariantUpdateParams {
+  external_references?: ExternalReferencesParams
   sku?: string
   /** Decimal amount; see `VariantPrice.amount` for the string rationale. */
   cost_price?: string | number
@@ -1107,6 +1114,7 @@ export interface MeUpdateParams {
 }
 
 export interface StockLocationCreateParams {
+  external_references?: ExternalReferencesParams
   name: string
   admin_name?: string | null
   active?: boolean
@@ -1135,6 +1143,7 @@ export interface StockLocationCreateParams {
 }
 
 export interface StockLocationUpdateParams {
+  external_references?: ExternalReferencesParams
   name?: string
   admin_name?: string | null
   active?: boolean
@@ -1159,6 +1168,7 @@ export interface StockLocationUpdateParams {
 
 /** Corrects one stock level. */
 export interface StockLevelUpdateParams {
+  external_references?: ExternalReferencesParams
   /**
    * The count the shelf should end at. The API records the difference as an
    * `adjusted` movement rather than writing the column, so the correction
@@ -1171,6 +1181,37 @@ export interface StockLevelUpdateParams {
   /** Labels the correction in the stock history. Defaults to "Manual adjustment". */
   reason?: string
   metadata?: Record<string, unknown>
+}
+
+/**
+ * Identities a record has in external systems, keyed by system — the same
+ * `{ system: external_id }` map the Admin API renders, so what you read can be
+ * sent straight back. Systems you do not name keep the reference they have.
+ * A list of `{ system, external_id }` entries is accepted too.
+ */
+export type ExternalReferencesParams =
+  | Record<string, string>
+  | Array<{ system: string; external_id: string }>
+
+/** How a feed names the record it is reporting on, when it does not hold Spree's id. */
+export interface ExternalReferenceLookup {
+  /** `{ system: external_id }`, e.g. `{ erp: 'MAT-100' }`. */
+  external_id: Record<string, string>
+}
+
+export interface StockLevelBulkUpsertRow {
+  /** Spree's own id. Use this or `variant`. */
+  variant_id?: string
+  /** Address the variant by the key the feeding system holds. */
+  variant?: ExternalReferenceLookup
+  /** Spree's own id. Use this or `stock_location`. */
+  stock_location_id?: string
+  stock_location?: ExternalReferenceLookup
+  /** The absolute level the external system reports. */
+  count_on_hand?: number
+  /** A relative change, for feeds that report movements rather than levels. */
+  adjustment?: number
+  backorderable?: boolean
 }
 
 export interface StockTransferCreateParams {
@@ -2222,8 +2263,7 @@ export interface DeliveryZoneParams {
 
 export interface CompanyParams {
   name?: string
-  /** Your own reference for this business, unique within the store. */
-  external_id?: string | null
+  external_references?: ExternalReferencesParams
   metadata?: Record<string, unknown>
 }
 
@@ -2246,7 +2286,7 @@ export interface CompanyLocationAddressParams {
 
 export interface CompanyLocationParams {
   name?: string
-  external_id?: string | null
+  external_references?: ExternalReferencesParams
   billing_address?: CompanyLocationAddressParams
   shipping_address?: CompanyLocationAddressParams
   metadata?: Record<string, unknown>

@@ -1554,18 +1554,11 @@
       "company": {
         "name": {
           "placeholder": "Acme Industries"
-        },
-        "external_id": {
-          "help": "您为该企业设定的编号，在本店内唯一。",
-          "placeholder": "ACME-001"
         }
       },
       "company_location": {
         "name": {
           "placeholder": "总部"
-        },
-        "external_id": {
-          "help": "您为该分支机构设定的编号。"
         }
       },
       "company_contact": {
@@ -1713,6 +1706,9 @@
           "help": "收费不低于前者，也不高于后者。每项仅适用于其对应货币的销售；留空的货币将不受限制地收费。",
           "label": "下限与上限（可选）"
         }
+      },
+      "external_references": {
+        "label": "外部引用"
       }
     },
     "delivery_profiles": {

@@ -213,6 +213,7 @@ import type {
   SetupCountries,
   SetupParams,
   SetupStatus,
+  StockLevelBulkUpsertRow,
   StockLevelUpdateParams,
   StockLocationCreateParams,
   StockLocationUpdateParams,
@@ -3922,7 +3923,24 @@ export class AdminClient {
 
     delete: (id: string, options?: RequestOptions): Promise<void> =>
       this.request<void>('DELETE', `/stock_levels/${id}`, options),
+
+    /**
+     * Sets stock levels for many (variant, location) pairs at once — what a
+     * warehouse feed posts on a schedule. Rows name their variant and location
+     * either by Spree id or by an external reference, so a feed can use the
+     * keys it already holds.
+     *
+     * Each change is recorded as a stock movement, so the history stays
+     * intact. Response is `{ stock_level_count }`.
+     */
+    bulkUpsert: (
+      params: { stock_levels: StockLevelBulkUpsertRow[] },
+      options?: RequestOptions,
+    ): Promise<{ stock_level_count: number }> =>
+      this.request('POST', '/stock_levels/bulk_upsert', { ...options, body: params }),
   }
+
+  //   }
 
   // ============================================
   // Stock Movements

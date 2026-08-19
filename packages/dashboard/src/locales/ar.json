@@ -1568,18 +1568,11 @@
       "company": {
         "name": {
           "placeholder": "Acme Industries"
-        },
-        "external_id": {
-          "help": "مرجعك الخاص لهذه الشركة، فريد داخل المتجر.",
-          "placeholder": "ACME-001"
         }
       },
       "company_location": {
         "name": {
           "placeholder": "المقر الرئيسي"
-        },
-        "external_id": {
-          "help": "مرجعك الخاص لهذا الفرع."
         }
       },
       "company_contact": {
@@ -1727,6 +1720,9 @@
           "help": "لا تحتسب أقل من الأول ولا أكثر من الثاني. ينطبق كل منهما على المبيعات بعملته فقط؛ والعملة المتروكة فارغة تُحتسب دون حدود.",
           "label": "حد أدنى وأقصى (اختياري)"
         }
+      },
+      "external_references": {
+        "label": "المراجع الخارجية"
       }
     },
     "delivery_profiles": {

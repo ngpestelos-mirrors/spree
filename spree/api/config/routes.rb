@@ -337,7 +337,11 @@ Spree::Core::Engine.add_routes do
         # Inventory
         resources :stock_locations
         resources :stock_reservations, only: [:index, :show]
-        resources :stock_levels, only: [:index, :show, :update, :destroy]
+        resources :stock_levels, only: [:index, :show, :update, :destroy] do
+          collection do
+            post :bulk_upsert
+          end
+        end
         resources :stock_movements, only: [:index, :show]
         resources :stock_transfers, only: [:index, :show, :create, :destroy]
 

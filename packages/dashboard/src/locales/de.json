@@ -1557,18 +1557,11 @@
       "company": {
         "name": {
           "placeholder": "Acme Industries"
-        },
-        "external_id": {
-          "help": "Ihre eigene Referenz für diese Firma, eindeutig innerhalb des Shops.",
-          "placeholder": "ACME-001"
         }
       },
       "company_location": {
         "name": {
           "placeholder": "Hauptsitz"
-        },
-        "external_id": {
-          "help": "Ihre eigene Referenz für diese Niederlassung."
         }
       },
       "company_contact": {
@@ -1716,6 +1709,9 @@
           "help": "Nie weniger als der erste und nie mehr als der zweite Betrag. Jeder gilt nur für Verkäufe in seiner eigenen Währung; eine leer gelassene Währung wird unbegrenzt berechnet.",
           "label": "Unter- und Obergrenze (optional)"
         }
+      },
+      "external_references": {
+        "label": "Externe Referenzen"
       }
     },
     "delivery_profiles": {

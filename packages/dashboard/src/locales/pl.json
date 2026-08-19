@@ -1571,18 +1571,11 @@
       "company": {
         "name": {
           "placeholder": "Acme Industries"
-        },
-        "external_id": {
-          "help": "Twój własny identyfikator tej firmy, unikalny w sklepie.",
-          "placeholder": "ACME-001"
         }
       },
       "company_location": {
         "name": {
           "placeholder": "Siedziba główna"
-        },
-        "external_id": {
-          "help": "Twój własny identyfikator tego oddziału."
         }
       },
       "company_contact": {
@@ -1730,6 +1723,9 @@
           "help": "Nigdy nie naliczaj mniej niż pierwsza kwota ani więcej niż druga. Każda dotyczy tylko sprzedaży w swojej walucie; waluta pozostawiona pusta jest naliczana bez ograniczeń.",
           "label": "Dolna i górna granica (opcjonalnie)"
         }
+      },
+      "external_references": {
+        "label": "Odniesienia zewnętrzne"
       }
     },
     "delivery_profiles": {
