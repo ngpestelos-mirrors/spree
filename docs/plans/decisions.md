@@ -1,10 +1,10 @@
-## 2026-09-04: Catalog audiences are alternatives, not layers — a company buyer is never also priced by their customer group (V-3570)
+## 2026-09-07: Deposits are not a shipping concern — how a buyer pays gets its own plan
 
-**Context:** `Catalog.for_context` consults a buyer's customer groups only when the company axis came back empty, so a merchant who put a shared range on a dealer group's company node and each trade tier on a customer group got tier prices that never applied — every dealer paid retail, with the catalog active, the audience assigned and the percentage saved. The code said two things about whether that was intended: the plan and the resolver describe a fallback chain, while `Spree::Catalog`'s class comment said visibility across applicable catalogs is their union, which reads as both audiences being consulted. The reading had to be ruled before either could be documented.
+**Context:** `6.0-b2b-wholesale-shipping.md` originally specified deposits as part of wholesale freight: a delivery method would carry a `deposit_percentage`, checkout would collect it, and the order would complete part-paid. Building it raised two questions that had to be answered before it could ship. Is a shipping method the right thing to hang a payment arrangement on? And does merchant-configurable deposit collection belong in open source at all? Researching the second answered the first.
 
-**Decision:** The fallback chain is the intended behaviour and stays: the company subtree if any of its nodes carry a catalog, otherwise the customer's groups, otherwise the channel's default catalog. A buyer is on one agreement, resolved from the nearest party to them — layering a personal segment's prices on top of a company's negotiated ones would price one purchase under two agreements at once, and which won would depend on catalog position rather than on anything a merchant chose. Trade tiers over a company tree are expressed as company assignments: the shared range on the root, each tier's catalog on the member companies or divisions in that tier (one tier catalog carries as many assignments as the tier has members). That route already works and is what the union-within-an-audience plus nearest-node-first pricing was built for. Customer group assignments remain for buyers not purchasing for a company at all — a retail loyalty tier, a staff discount.
+**Decision:** This plan covers how goods **ship**; how the buyer **pays** is a separate subject with its own plan. Three findings drove it. **Deposits and net terms are two halves of one arrangement** — merchants combine them ("40% deposit, balance Net 30"), and the only native implementation in the market models the deposit as an attribute *on* a payment term. Shipping half the subject inside a shipping plan leaves a vocabulary with no way to set it and no home for the other half. **The arrangement belongs to the buyer, not the shipment** — a deposit is negotiated with a company; no comparable platform configures one per shipping method, and every one that offers deposits scopes them per product, per customer, or per order. **Two OSS plans already defer net terms** to a payment-terms plan that does not exist (`6.0-payment-method-rules.md`, `6.0-6.1-b2b-payment-terms.md`), so the destination was already named — it just had not been written.
 
-**Consequences:** No behaviour change; the fix is that the code and the dashboard now say so. The class comment is corrected (it was the only place claiming the two audiences combine), the `for_context` and pricing-resolver comments read "or failing that" rather than "then", and the fallback carries an inline note. The dashboard states the precedence where a merchant can act on it: help text under the audience picker when a customer group is chosen, and a standing note on the audience card and wizard step whenever a group assignment is present, pointing at the company route for tier pricing. The developer docs stop framing the three ways of reaching a buyer as combining and carry the tier recipe as a warning. Three examples in `catalog_spec.rb` lock the ruling — the group dropping out once a company catalog exists, the group still applying when none does, and the subtree union when the tier is a company assignment. What is *not* solved: nothing detects a catalog assigned only to groups whose members are all company buyers, so such a catalog is still silently unreachable; a reachability warning needs the buyer population and is a separate piece of work.
+**Consequences:** No delivery method carries a `deposit_percentage`, and freight must not become a second place payment arrangements are configured. One piece is deliberately kept so the payment-terms plan starts from a hook rather than from patching: `Purchase#amount_due_at_checkout`, answering the full total through `Spree::Purchases::AmountDueAtCheckout` (registered in `Spree::Dependencies`), read by the four decisions that gate on money arriving — checkout requirements, both completion guards, and dispatch. Without it, an arrangement collecting part of the total up front has to patch those four independently. It ships with a spec proving the open-source answer is the total, and a spec registering a half-up-front replacement and proving checkout, completion and dispatch all follow it. What a new payment or gateway session *defaults* to, and the capture loop, still read `total`: those are amounts rather than decisions. Partial payments are untouched — they predate this work. A related fix rides along because it holds independently: dispatch now guards on `payment_total >= amount_due_at_checkout` rather than `paid?`, which required a positive total and so refused to ship a fully discounted or store-credit-paid order.
 
 ## 2026-09-03: A return label buys the cheapest rate; the fulfillment's tracking becomes a read-through summary
 
@@ -4764,6 +4764,49 @@ agreement to understand every part of it at once); skippable steps (a
 "create now" escape hatch competing with Next on every step).
 
 Plans amended: `6.0-catalog-agreement-rework.md` (phase 4 completed).
+## 2026-08-31 — Wholesale shipping backend: the store's box becomes a row with no bridge, and unpriced rates carry the logistics instead of a price
+
+Phases 1–6 of `6.0-b2b-wholesale-shipping.md` — everything below the
+dashboard and the storefront. Three rulings other plans need.
+
+**The four `default_package_*` store preferences are deleted outright, with
+no deprecation bridge.** A recorded exception to the always-bridge
+convention, and the reasoning is narrow enough to be worth stating so it is
+not read as a precedent: those preferences were added inside this same
+unreleased 6.0 cycle, so no released version exposes them and there is no
+caller to keep working. A bridge writing through to the new default
+`PackageType` row would have left two spellings of the store's shipping box
+coexisting for a release, each able to disagree with the other in the
+dashboard, in exchange for compatibility nobody can be relying on. The
+upgrade task (`spree:package_types:backfill`) creates each store's default
+row from the preference values, which is what makes the removal safe. The
+convention still holds for anything that shipped: bridge it.
+
+**An unset variant `dimensions_unit` follows the store's `unit_system`** —
+imperial reads as inches, metric as centimeters — rather than gaining a
+`default_dimensions_unit` store preference to mirror `weight_unit`'s
+fallback. The store already answers "what do dimensions mean here" through
+`unit_system`, which is what the box preferences and the EasyPost provider
+have always read; a second settable value could contradict it, and the
+merchant would have no way to tell which one a number obeyed.
+
+**An unpriced rate is a rate with no price, not a rate priced at zero.**
+`Spree::DeliveryRateProvider::Estimate` and `spree_delivery_rates` carry an
+`unpriced` boolean; the estimator skips markup and tax gross-up for those
+rows, and `DeliveryRate#free?` answers false for them so nothing renders
+"Free" over a shipment whose cost is genuinely unknown. This is the
+mechanism the plan's constraint points at — a zero-cost priced rate is the
+workaround it exists to prevent. `Spree::FreightSummary` (units, cartons,
+pallets, CBM, gross weight, `complete?`) rides in the estimate's metadata
+and is frozen onto the selected rate at completion, never re-derived from
+the live catalog afterwards.
+
+Everything money-shaped stays for phase 7: deposits, the completion
+payment-sufficiency change and the partial-payment order surfaces are not in
+this cut. **Constraint unchanged and now load-bearing:** nothing may assume
+a completed order is paid in full once phase 7 lands.
+
+Plan: `6.0-b2b-wholesale-shipping.md` (phases 1–6 implemented).
 
 ## 2026-09-02 — Order cancellation and approval history tables are dropped; the reason lives on the order
 
@@ -4985,3 +5028,94 @@ everywhere — validating the existing quantity-rules split. Constraints:
 contracted tiers are never discounts, marketing discounts are never
 prices; price-reading callers must pass line quantity through
 `Pricing::Context`; exports must carry tier rows.
+## 2026-09-07 — The payment-terms preset is a table, built now rather than sequenced
+
+> **Superseded the same day** by "Deposits are not a shipping concern" at the
+> top of this file: the whole subject moved to a payment-terms plan of its own,
+> so nothing here configures terms. The reasoning below about *naming* — that
+> the snapshot and the preset are different things and should not share a name
+> — still stands wherever the preset eventually lives.
+
+`6.0-6.1-b2b-payment-terms.md` had `Spree::PaymentTerm` — the merchant's
+named arrangement, "40% deposit, balance before shipping" — arriving in 6.1,
+with 6.0 shipping only the per-purchase jsonb snapshot. Pulled forward: a
+column we already know changes in the next release is worth building once.
+
+**The preset is a table; the snapshot stays a document.** They are different
+things and the distinction is load-bearing. `Spree::PaymentTerm` is a
+store-scoped `NamedType` a merchant configures and a company points at
+(`spree_companies.payment_term_id`, nullable). The snapshot on a cart or
+order copies its **values** — never its id — so renaming, deactivating or
+deleting a preset cannot rewrite a deal already struck. That is the same
+reasoning as a negotiated price: history is not a live reference.
+
+**Resolution now layers.** A purchase asks its company first and the
+shipment second: a company negotiated its arrangement, whereas a freight
+method only suggests one. The remaining layer from the plan — a quote or
+order override — is still 6.1, and slots in front.
+
+**Constraint now:** nothing may make the snapshot a foreign key to the
+preset, and nothing may read terms off `company.payment_term` after
+placement — the frozen copy is the answer.
+
+## 2026-09-05 — A deposit's amounts ship pre-formatted, and a carton is named rather than referenced in a CSV
+
+Two rulings from building the wholesale plan's dashboard and storefront
+phases.
+
+**Every amount in the payment schedule carries a formatted twin.** The
+schedule began as bare decimal strings, which meant each surface reading it
+would format money itself — and the storefront has no currency formatter at
+all, by deliberate design: it prints the `display_*` strings the API sends
+and never guesses at a locale. Cart and order now build the schedule through
+one `payment_schedule_json` helper on the base serializer, so the two cannot
+drift, and `display_amount_due_now`, `display_deposit_amount` and
+`display_outstanding_balance` sit beside the raw values. The raw values stay
+for the arithmetic a client legitimately does — deciding whether a row is
+worth showing — which is the same split the rest of the money surface uses.
+
+**A CSV names its carton; it does not reference one.** A merchant's
+spreadsheet says "Large carton", not a prefixed id, so the products import
+resolves the carton by name — and resolves it through `store.package_types`,
+so a name that matches another store's carton leaves the variant unpacked
+rather than borrowing somebody else's measurements. The tax-category lookup
+beside it is *not* store-scoped and was left alone: widening it is a
+separate correctness fix with its own blast radius, not something to smuggle
+into a packaging change.
+
+**Constraint now:** a new money field on a derived value object ships with
+its formatted twin from the start, and storefront code never formats
+currency. A new named lookup in an importer resolves through the store's own
+association.
+
+## 2026-09-05 — Wholesale deposits: staff settle the balance in 6.0, and the deposit rounds up
+
+Closing the two open questions `6.0-b2b-wholesale-shipping.md` left for its
+deposit phase, as that phase is built.
+
+**A buyer pays the deposit; staff settle the rest.** Checkout collects
+`amount_due_at_checkout` and the order completes `partially_paid` against
+the existing `outstanding_balance`. The storefront *shows* what is
+outstanding but offers no way to pay it. A customer-facing pay-balance
+route is money-taking code that `6.0-6.1-b2b-payment-terms.md` sequences
+for 6.1 beside the bank-transfer method and the payment `reference`
+column; shipping it early would open a second payment entry point with no
+named terms behind it and no reconciliation identifier to settle against.
+Merchants record or capture the balance through the payment surfaces that
+already exist.
+
+**The deposit rounds up and the balance absorbs the remainder.** A
+percentage of a total rarely lands on a whole cent. Rounding the deposit up
+means a buyer is never asked for less than the percentage agreed, and
+deposit + balance sum to the total exactly — so nothing downstream needs a
+reconciling step for a stranded cent. Rounding is to the currency's own
+smallest unit, never a hardcoded two places, because the same code prices
+zero-decimal currencies.
+
+**Constraint for anything collecting money later:** read
+`amount_due_at_checkout` rather than the order total, and respect the
+existing `max_amount` cap. A surface that charges the full total on a
+deposit order takes money the buyer did not agree to yet.
+
+Plans amended: `6.0-b2b-wholesale-shipping.md` (open questions closed),
+`6.0-6.1-b2b-payment-terms.md` (its 6.0 half rides this work).
