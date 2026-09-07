@@ -1,3 +1,87 @@
+## 2026-09-07: Inventory operations grooming — transfers get a status and workflows, supplier receives become purchase orders, and a receive records what the units cost
+
+**Context:** `6.0-inventory-operations.md` was written before three things
+landed that its own code samples assume away: `state_machines-activerecord`
+left the dependency list, permission sets became a registered catalog of
+grant keys, and the `public_metadata`/`private_metadata` pair became one
+`metadata` column. `decisions.md` 2026-08-30 also left one call explicitly to
+this grooming — whether removing the one-shot `StockTransfer.transfer` API
+uses the 6.0 breaking window or ships behind a deprecation bridge. Grooming it
+for implementation surfaced a tenancy hole as well: `spree_stock_transfers`
+has no `store_id`, `Spree::Store` has no `stock_transfers` association, and so
+`Spree::Base.for_store` falls through to `self` — the admin transfers endpoint
+has never been store-scoped.
+
+**Decision:** Seven rulings, all inside the plan's existing design.
+
+**Statuses are declared, transitions are workflows.** `Spree::StockTransfer`
+(`draft | ready_to_ship | in_transit | partially_received | received |
+canceled`) and `Spree::PurchaseOrder` (`draft | ordered | partially_received |
+received | canceled`) both `include Spree::HasStatus`; every move between
+statuses is a workflow under `Spree::StockTransfers::` /
+`Spree::PurchaseOrders::`, registered on `Spree::Dependencies`. This is not
+merely conformance with `6.0-normalize-state-to-status.md`: a receive has to
+carry the quantities the warehouse actually counted and a cancellation has to
+carry the merchant's restock-or-write-off choice, and a transition callback
+takes no arguments. The guards a state machine expressed as `from:` become
+each workflow's own status check.
+
+**The one-shot `StockTransfer.transfer` / `.receive` methods are removed
+outright.** A shim would keep a second write path into `count_on_hand` alive
+through 6.0, which is the exact thing typed movements exist to prevent. The
+admin `POST /stock_transfers` now persists a draft rather than moving stock.
+
+**`spree_stock_transfers` gains its own `store_id`**, closing the scoping hole
+above and giving transfers the same tenancy rule as purchase orders instead of
+a second one derived from `destination_location`. `source_location_id` stays
+nullable in the database with presence enforced on the model — a
+`change_column_null` would fail on any install still holding external-receive
+rows, and emptying that column is the upgrade task's job.
+
+**Legacy source-less transfers are soft-deleted, not dropped.**
+`spree:upgrade:migrate_external_receives_to_purchase_orders` mints the `PO-…`,
+points the existing movements at it and stamps the `T-…` transfer
+`deleted_at`, so the old number stays findable without the same receive
+appearing twice in the admin;
+`spree:upgrade:purge_migrated_external_receives` removes them later.
+
+**Suppliers and purchase orders are one new catalog resource, `:purchasing`**
+(`read_purchasing` / `write_purchasing`), registered beside `:stock` in
+`PermissionConfiguration#register_default_resources`. The plan's earlier
+`read_inventory` / `write_inventory` would have put "Stock" and "Inventory"
+side by side on the roles screen with nothing to tell a merchant which covers
+what. `Spree::StockTransferItem` joins the existing `:stock` subject list.
+
+**Suppliers are per store** — `store_id`, `Spree::SingleStoreResource`, unique
+on `(store_id, name)`. Promoting them to installation-wide later means a join
+table and a one-row-per-supplier backfill; nothing is built against that.
+
+**A receive records what the units cost.**
+`spree_stock_movements.unit_cost` (nullable `decimal(10, 2)`) carries the price
+each unit landed at, so the rolling average-cost feature the plan defers has a
+ledger to read rather than a reconstruction to attempt — including across two
+partial receives at different prices. Transfers and returns leave it null:
+moving stock a merchant already owns is not a purchase. Money is a
+`decimal(10, 2)` column throughout, following `Spree::Variant#cost_price` —
+Spree has no money-rails dependency, so the plan's `_cents` + `monetize` shape
+does not exist.
+
+**Consequences:** `StockTransfer.transfer` and `.receive` are gone at 6.0 and
+need an upgrade note. Never write `status` on a transfer or a purchase order
+directly — it passes the inclusion validation, writes no movement, and
+desynchronizes the ledger from the shelf; call the workflow. Never reach
+`Spree::StockTransfer` unscoped now that it carries `store_id`. Status columns
+ship with no database default (the creating workflow sets them; `has_status`
+supplies the attribute default), and both new metadata-carrying tables have
+one `metadata` column. `StockLocation#restock` and `#move` take an optional
+`unit_cost:`. Statuses spell `canceled` with one `l`, matching the other 87
+occurrences in core. Status transitions are `PATCH` member routes, matching
+`orders/:id/cancel` and `returns/:id/receive` — the plan's claim that they are
+POSTs described no existing endpoint. Lot tracking stays 6.1 and the 6.0 half
+builds no lot rows, so open questions 5 and 6 keep their reasons; open
+question 4 (ship-to-store transfers) stays open pending the fulfillment plan's
+call on what a pickup date range promises when stock has to travel.
+
 ## 2026-09-04: Catalog audiences are alternatives, not layers — a company buyer is never also priced by their customer group (V-3570)
 
 **Context:** `Catalog.for_context` consults a buyer's customer groups only when the company axis came back empty, so a merchant who put a shared range on a dealer group's company node and each trade tier on a customer group got tier prices that never applied — every dealer paid retail, with the catalog active, the audience assigned and the percentage saved. The code said two things about whether that was intended: the plan and the resolver describe a fallback chain, while `Spree::Catalog`'s class comment said visibility across applicable catalogs is their union, which reads as both audiences being consulted. The reading had to be ruled before either could be documented.
