@@ -242,6 +242,12 @@ module Spree
       Spree::DeliveryProfile.default_for(self)
     end
     has_many :stock_locations, class_name: 'Spree::StockLocation', dependent: :nullify
+    # Inventory operations (docs/plans/6.0-inventory-operations.md). Transfers
+    # carry their own store rather than borrowing the destination warehouse's,
+    # so the admin endpoint has a scope to fetch through.
+    has_many :stock_transfers, class_name: 'Spree::StockTransfer', dependent: :destroy_async, inverse_of: :store
+    has_many :suppliers, class_name: 'Spree::Supplier', dependent: :destroy, inverse_of: :store
+    has_many :purchase_orders, class_name: 'Spree::PurchaseOrder', dependent: :destroy_async, inverse_of: :store
     has_many :promotions, class_name: 'Spree::Promotion', dependent: :nullify
 
     has_many :tax_categories, class_name: 'Spree::TaxCategory', dependent: :destroy, inverse_of: :store
