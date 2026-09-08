@@ -33718,6 +33718,9 @@ paths:
         bearer_auth: []
       description: |-
         The products the list prices, listed by name — membership is derived from the price rows.
+        `expand=price_list_price` adds what the list charges for each variant, with its quantity
+        breaks as tiers, the same reading a catalog's products carry.
+
 
         **Required scope:** `read_products` (for API-key authentication).
       parameters:
@@ -33736,21 +33739,58 @@ paths:
         required: true
         schema:
           type: string
+      - name: expand
+        in: query
+        required: false
+        description: Comma-separated. `price_list_price` adds the resolved price to
+          every row.
+        example: price_list_price
+        schema:
+          type: string
       responses:
         '200':
-          description: products found
+          description: products found, with what the list charges
           content:
             application/json:
               example:
-                data: []
+                data:
+                - id: prod_UkLWZg9DAJ
+                  name: Product 843365
+                  thumbnail_url:
+                  price_list_price:
+                    id: variant_UkLWZg9DAJ
+                    label:
+                    sku: SKU-97
+                    currency: USD
+                    source: base
+                    break_count: 1
+                    amount: '100.0'
+                    display_amount: "$100.00"
+                    tiers:
+                    - min_quantity: 24
+                      display_amount: "$80.00"
+                      amount: '80.0'
+                  price_list_variants:
+                  - id: variant_UkLWZg9DAJ
+                    label:
+                    sku: SKU-97
+                    currency: USD
+                    source: base
+                    break_count: 1
+                    amount: '100.0'
+                    display_amount: "$100.00"
+                    tiers:
+                    - min_quantity: 24
+                      display_amount: "$80.00"
+                      amount: '80.0'
                 meta:
                   page: 1
                   limit: 25
-                  count: 0
+                  count: 1
                   pages: 1
-                  from: 0
-                  to: 0
-                  in: 0
+                  from: 1
+                  to: 1
+                  in: 1
                   previous:
                   next:
               schema:
@@ -33759,7 +33799,7 @@ paths:
                   data:
                     type: array
                     items:
-                      "$ref": "#/components/schemas/Product"
+                      "$ref": "#/components/schemas/PriceListProduct"
                   meta:
                     "$ref": "#/components/schemas/PaginationMeta"
                 required:
@@ -41309,6 +41349,29 @@ components:
       - price_id
       - compare_at_amount
       - created_at
+      x-typelizer: true
+    PriceListProduct:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        thumbnail_url:
+          type: string
+          nullable: true
+        price_list_price:
+          allOf:
+          - "$ref": "#/components/schemas/CatalogPrice"
+          nullable: true
+        price_list_variants:
+          type: array
+          items:
+            "$ref": "#/components/schemas/CatalogPrice"
+      required:
+      - id
+      - name
+      - thumbnail_url
       x-typelizer: true
     PriceList:
       type: object
