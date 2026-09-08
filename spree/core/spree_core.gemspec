@@ -50,7 +50,7 @@ Gem::Specification.new do |s|
   s.add_dependency 'json', '< 3'
   s.add_dependency 'jwt', '~> 3.1'
   s.add_dependency 'money', '~> 6.13'
-  s.add_dependency 'monetize', '~> 1.9'
+  s.add_dependency 'monetize', '>= 1.9', '< 3.0'
   s.add_dependency 'name_of_person', '~> 1.1'
   s.add_dependency 'nokogiri', '~> 1.18'
   s.add_dependency 'ostruct'
