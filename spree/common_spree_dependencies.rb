@@ -40,6 +40,10 @@ group :test do
   gem 'webmock'
   gem 'timecop'
   gem 'rails-controller-testing'
+  # N+1 tripwire for API requests (see Spree::Api::V3::BaseController).
+  # pg_query is Prosopite's SQL fingerprinter for every adapter but MySQL.
+  gem 'prosopite'
+  gem 'pg_query'
 end
 
 group :test, :development do

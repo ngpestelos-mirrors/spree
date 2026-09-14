@@ -43,7 +43,28 @@ module Spree
         # mutates: an action that wants unbuyable lines swept calls
         # +sweep_unbuyable_lines!+ itself first.
         def render_cart(status: :ok)
+          # A cart that was just written holds line items built one at a time,
+          # so their variants carry no preload context and the serializer's
+          # price and stock reads would query per line. Registering them as
+          # one context batches those reads; a cart that was read through a
+          # relation already has one and is unaffected.
+          preload_for_render(@cart)
+
           render json: Spree.api.cart_serializer.new(@cart, params: serializer_params).to_h, status: status
+        end
+
+        # A record that was just written holds line items built one at a time,
+        # so their variants carry no preload context and the serializer's
+        # price and stock reads would query once per line. Registering them
+        # as one context keeps rendering flat however the record was built;
+        # a record read through a relation already has one.
+        def preload_for_render(record)
+          return unless record.respond_to?(:line_items)
+
+          variants = record.line_items.filter_map(&:variant).uniq(&:id)
+          return if variants.empty?
+
+          ArLazyPreload::Context.register(records: variants, auto_preload: true)
         end
 
         # Drops lines the customer can no longer buy — a discontinued product,
@@ -67,6 +88,8 @@ module Spree
         def render_order(status: :ok)
           record = @cart.reload
           serializer = record.is_a?(Spree::OrderGroup) ? Spree.api.order_group_serializer : Spree.api.order_serializer
+
+          preload_for_render(record)
 
           render json: serializer.new(record, params: serializer_params).to_h, status: status
         end

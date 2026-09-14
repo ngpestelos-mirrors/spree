@@ -390,9 +390,20 @@ module Spree
       Spree::Current.store
     end
 
+    # The default store, memoized for the duration of a request. Models reach
+    # for it on every currency, weight-unit and country fallback, so writing
+    # a page of variants would otherwise spend a query on each one.
+    #
+    # Cached in RequestStore, which clears between requests, so a store that
+    # changes is picked up by the next one. Outside a request — a console, a
+    # job, a spec — RequestStore is inactive and this always reads the row,
+    # so nothing can hold a stale default.
+    #
     # @return [Spree::Store, nil] the store flagged as default, if one exists
     def self.default
-      where(default: true).first
+      return where(default: true).first unless RequestStore.active?
+
+      RequestStore.fetch(:spree_default_store) { where(default: true).first }
     end
 
     def self.available_locales
