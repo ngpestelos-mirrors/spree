@@ -422,6 +422,8 @@ end
 
 For new models, add `publishes_lifecycle_events` concern and create an event serializer.
 
+Webhook payloads use Store serializers only — never a hand-built hash, never an Admin serializer; extra facts go in `metadata`. Every event is being moved to a declared catalog (see `docs/plans/6.0-typed-webhook-events.md`).
+
 ### API Authentication
 
 Four credential types, each with its own header and authorization model:
