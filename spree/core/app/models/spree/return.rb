@@ -22,6 +22,7 @@ module Spree
     include Spree::Metadata
 
     publishes_lifecycle_events
+    publishes_events :approved, :canceled, :received, :refunded, :requested
 
     has_status :requested, :approved, :received, :refunded, :canceled,
                default: :requested

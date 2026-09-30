@@ -18,6 +18,7 @@ module Spree
     include Spree::Metadata
 
     publishes_lifecycle_events
+    publishes_events :approved, :canceled, :denied, :opened, :resolved
 
     has_status :open, :approved, :resolved, :denied, :canceled, default: :open
 
