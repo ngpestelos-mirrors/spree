@@ -4,9 +4,9 @@ module Spree
   class Promotion
     module Rules
       class ItemTotal < Spree::PromotionRule
-        preference :amount_min, :decimal, default: 100.00
+        preference :amount_min, :decimal, money: true, default: 100.00
         preference :operator_min, :string, default: '>'
-        preference :amount_max, :decimal, default: nil, nullable: true
+        preference :amount_max, :decimal, money: true, default: nil, nullable: true
         preference :operator_max, :string, default: '<'
 
         OPERATORS_MIN = ['gt', 'gte']
