@@ -34,6 +34,28 @@ import type {
   TeamMember,
   Transfer,
 } from './types'
+import type {
+  DeliveryMethodFilters,
+  DeliveryMethodSort,
+  DeliveryProfileFilters,
+  DeliveryProfileSort,
+  OrderFilters,
+  OrderSort,
+  PackageTypeFilters,
+  PackageTypeSort,
+  PolicyFilters,
+  PolicySort,
+  ProductFilters,
+  ProductSort,
+  ProductTypeFilters,
+  ProductTypeSort,
+  SellerPayoutFilters,
+  SellerPayoutSort,
+  SellerTransferFilters,
+  SellerTransferSort,
+  StockLocationFilters,
+  StockLocationSort,
+} from './types/filters.generated'
 
 /**
  * Resource methods for the Spree Seller API — the marketplace seller panel.
@@ -328,7 +350,7 @@ export class SellerClient {
    */
   readonly products = {
     list: (
-      params?: ListParams & Record<string, unknown>,
+      params?: ListParams<ProductFilters, ProductSort>,
       options?: RequestOptions,
     ): Promise<PaginatedResponse<Product>> =>
       this.request<PaginatedResponse<Product>>('GET', '/products', {
@@ -411,7 +433,7 @@ export class SellerClient {
    */
   readonly orders = {
     list: (
-      params?: ListParams & Record<string, unknown>,
+      params?: ListParams<OrderFilters, OrderSort>,
       options?: RequestOptions,
     ): Promise<PaginatedResponse<Order>> =>
       this.request<PaginatedResponse<Order>>('GET', '/orders', {
@@ -1011,7 +1033,7 @@ export class SellerClient {
    */
   readonly productTypes = {
     list: (
-      params?: ListParams & Record<string, unknown>,
+      params?: ListParams<ProductTypeFilters, ProductTypeSort>,
       options?: RequestOptions,
     ): Promise<PaginatedResponse<ProductType>> =>
       this.request<PaginatedResponse<ProductType>>('GET', '/product_types', {
@@ -1030,7 +1052,7 @@ export class SellerClient {
    */
   readonly deliveryProfiles = {
     list: (
-      params?: ListParams & Record<string, unknown>,
+      params?: ListParams<DeliveryProfileFilters, DeliveryProfileSort>,
       options?: RequestOptions,
     ): Promise<PaginatedResponse<DeliveryProfile>> =>
       this.request<PaginatedResponse<DeliveryProfile>>('GET', '/delivery_profiles', {
@@ -1079,7 +1101,7 @@ export class SellerClient {
    */
   readonly deliveryMethods = {
     list: (
-      params?: ListParams & Record<string, unknown>,
+      params?: ListParams<DeliveryMethodFilters, DeliveryMethodSort>,
       options?: RequestOptions,
     ): Promise<PaginatedResponse<DeliveryMethod>> =>
       this.request<PaginatedResponse<DeliveryMethod>>('GET', '/delivery_methods', {
@@ -1131,7 +1153,7 @@ export class SellerClient {
    */
   readonly stockLocations = {
     list: (
-      params?: ListParams & Record<string, unknown>,
+      params?: ListParams<StockLocationFilters, StockLocationSort>,
       options?: RequestOptions,
     ): Promise<PaginatedResponse<StockLocation>> =>
       this.request<PaginatedResponse<StockLocation>>('GET', '/stock_locations', {
@@ -1168,7 +1190,7 @@ export class SellerClient {
    */
   readonly packageTypes = {
     list: (
-      params?: ListParams & { owner?: 'mine' } & Record<string, unknown>,
+      params?: ListParams<PackageTypeFilters, PackageTypeSort> & { owner?: 'mine' },
       options?: RequestOptions,
     ): Promise<PaginatedResponse<PackageType>> => {
       // `owner` is a plain query param the controller reads directly, so it
@@ -1224,7 +1246,7 @@ export class SellerClient {
    */
   readonly transfers = {
     list: (
-      params?: ListParams & Record<string, unknown>,
+      params?: ListParams<SellerTransferFilters, SellerTransferSort>,
       options?: RequestOptions,
     ): Promise<PaginatedResponse<Transfer>> =>
       this.request<PaginatedResponse<Transfer>>('GET', '/transfers', {
@@ -1243,7 +1265,7 @@ export class SellerClient {
    */
   readonly payouts = {
     list: (
-      params?: ListParams & Record<string, unknown>,
+      params?: ListParams<SellerPayoutFilters, SellerPayoutSort>,
       options?: RequestOptions,
     ): Promise<PaginatedResponse<Payout>> =>
       this.request<PaginatedResponse<Payout>>('GET', '/payouts', {
@@ -1263,7 +1285,7 @@ export class SellerClient {
    */
   readonly policies = {
     list: (
-      params?: ListParams & Record<string, unknown>,
+      params?: ListParams<PolicyFilters, PolicySort>,
       options?: RequestOptions,
     ): Promise<PaginatedResponse<Policy>> =>
       this.request<PaginatedResponse<Policy>>('GET', '/policies', {
