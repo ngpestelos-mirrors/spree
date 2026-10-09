@@ -72,7 +72,7 @@ module Spree
             elsif definition[:of] == :id
               prefixed_ids(value, definition)
             else
-              value
+              preferable.wire_preference_value(value, definition)
             end
         end
       end
