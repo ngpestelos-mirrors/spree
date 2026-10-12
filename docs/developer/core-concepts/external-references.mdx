@@ -199,6 +199,29 @@ If an update names a key that already belongs to a **different** record, Spree k
 
 This usually means two records in Spree map to one record in the other system — for example, a product that was duplicated by hand. Remove the reference from one of them (send a blank key), then retry.
 
+## Reserved systems
+
+Some integrations keep their own bookkeeping on their references, such as a sync that remembers what it last wrote. If anything else changed or removed one of those references, the integration would lose track of the record and could create a duplicate. An integration can therefore reserve its system name.
+
+The Admin API refuses to create, change or remove a reference of a reserved system. This covers `external_references` on every create and update, and media created from a URL. The request answers `422` and names the system:
+
+```json Response
+{
+  "error": {
+    "code": "reserved_external_reference",
+    "message": "References of the my_platform system are managed by its integration and can't be changed through the API."
+  }
+}
+```
+
+Reading is not affected. Responses still show the reference, and `external:<system>:<key>` paths still find the record.
+
+An integration reserves its name in an initializer:
+
+```ruby server/config/initializers/my_platform.rb
+Spree.reserved_external_reference_systems << 'my_platform'
+```
+
 ## Filtering companies by key
 
 Companies can be filtered by their references, which helps when reconciling a list of accounts against an ERP:

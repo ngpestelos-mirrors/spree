@@ -241,3 +241,81 @@ RSpec.describe Spree::Api::V3::Admin::CompaniesController, type: :controller do
     expect(division.reload.external_id_for('crm')).to eq('DIV-1')
   end
 end
+
+RSpec.describe Spree::Api::V3::Admin::ProductsController, 'reserved external reference systems', type: :controller do
+  render_views
+
+  include_context 'API v3 Admin authenticated'
+
+  let!(:product) { create(:product, store: store, name: 'Widget') }
+
+  before do
+    request.headers.merge!(headers)
+    allow(Spree).to receive(:reserved_external_reference_systems).and_return(['acme_platform'])
+    product.set_external_id('acme_platform', '8123')
+  end
+
+  it 'refuses to record a key under a reserved system, naming it' do
+    expect do
+      post :create, params: { name: 'Synced Widget', external_references: { 'ACME_Platform' => '9000' } }, as: :json
+    end.not_to change(Spree::Product, :count)
+
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(json_response['error']['code']).to eq('reserved_external_reference')
+    expect(json_response['error']['message']).to include('acme_platform')
+  end
+
+  # The upsert would otherwise turn this create into an update of the
+  # product the integration owns.
+  it 'refuses a create that names a known key of a reserved system' do
+    post :create, params: { name: 'Hijacked', external_references: { acme_platform: '8123' } }, as: :json
+
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(product.reload.name).to eq('Widget')
+  end
+
+  it 'refuses to repoint or remove a reserved reference' do
+    patch :update, params: { id: product.prefixed_id, external_references: { acme_platform: '' } }, as: :json
+
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(product.reload.external_id_for('acme_platform')).to eq('8123')
+  end
+
+  it 'refuses metadata sent with an unchanged reserved key' do
+    patch :update, params: { id: product.prefixed_id,
+                             external_references: [{ system: 'acme_platform', external_id: '8123', metadata: { etag: 'x' } }] }, as: :json
+
+    expect(response).to have_http_status(:unprocessable_content)
+  end
+
+  it 'still finds the record by its reserved key' do
+    get :show, params: { id: 'external:acme_platform:8123' }, as: :json
+
+    expect(response).to have_http_status(:ok)
+    expect(json_response['id']).to eq(product.prefixed_id)
+  end
+
+  it 'still records keys of systems nobody reserved' do
+    patch :update, params: { id: product.prefixed_id, external_references: { erp: 'MAT-100' } }, as: :json
+
+    expect(response).to have_http_status(:ok)
+    expect(json_response['external_references']).to eq('acme_platform' => '8123', 'erp' => 'MAT-100')
+  end
+
+  # A client may send back the whole map it read.
+  it 'accepts a reserved key sent back unchanged' do
+    patch :update, params: { id: product.prefixed_id, external_references: { acme_platform: '8123', erp: 'MAT-100' } }, as: :json
+
+    expect(response).to have_http_status(:ok)
+    expect(product.reload.external_id_for('erp')).to eq('MAT-100')
+  end
+
+  it 'accepts it unchanged on a record found by another system\'s key, showing every key' do
+    product.set_external_id('erp', 'MAT-100')
+
+    patch :update, params: { id: 'external:erp:MAT-100', external_references: { acme_platform: '8123' } }, as: :json
+
+    expect(response).to have_http_status(:ok)
+    expect(json_response['external_references']).to eq('acme_platform' => '8123', 'erp' => 'MAT-100')
+  end
+end

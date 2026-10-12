@@ -35,6 +35,9 @@ module Spree
             class ConflictingReference < StandardError; end
 
             included do
+              # Declared first, so a create naming a reserved key is refused
+              # before it can turn into an update of the record that holds it.
+              before_action :refuse_reserved_external_references
               before_action :update_instead_when_external_id_known, only: :create
 
               rescue_from ConflictingReference do |error|
@@ -47,6 +50,50 @@ module Spree
             end
 
             protected
+
+            # A system an integration reserved (Spree.reserved_external_reference_systems)
+            # is written only by that integration: an edit here could repoint or
+            # drop the reference its own bookkeeping hangs off. Covers every write
+            # that reads the payload, media fetched from a URL included. A value
+            # sent back unchanged on an update changes nothing, so a client can
+            # still return the whole map it read.
+            def refuse_reserved_external_references
+              return unless payload_write?
+
+              reserved = Spree.reserved_external_reference_systems.map { |system| Spree::ExternalReference.normalize_system(system) }
+              entry = external_reference_params.detect do |requested|
+                key = Spree::ExternalReference.normalize_system(requested[:system])
+                reserved.include?(key) && !unchanged_external_reference?(key, requested)
+              end
+              return if entry.nil?
+
+              system = Spree::ExternalReference.normalize_system(entry[:system])
+
+              render_error(
+                code: 'reserved_external_reference',
+                message: I18n.t('spree.api.errors.reserved_external_reference', system: system),
+                status: :unprocessable_content
+              )
+            end
+
+            # The writes that carry a payload, so the ones that can write references.
+            def payload_write?
+              request.post? || request.patch? || request.put?
+            end
+
+            # Only a member write has a record to compare with; a create naming
+            # a reserved key is refused even when the key is already known. An
+            # entry carrying metadata would rewrite the integration's own
+            # bookkeeping, so it is never unchanged.
+            def unchanged_external_reference?(system, entry)
+              return false if params[:id].blank? || entry[:metadata].present?
+
+              @reserved_check_resource ||= @resource || find_resource
+              @reserved_check_resource.respond_to?(:external_id_for) &&
+                @reserved_check_resource.external_id_for(system) == entry[:external_id].to_s.strip
+            rescue ActiveRecord::RecordNotFound
+              false
+            end
 
             # A create whose payload names an external id Spree already knows
             # becomes an update of that record. Without this a re-run of the
@@ -74,6 +121,7 @@ module Spree
               return if existing.blank?
 
               @resource = existing
+              @external_reference_upsert = true
               authorize_resource!(@resource, :update)
               normalize_upsert_params!
               update
@@ -141,12 +189,30 @@ module Spree
               super
             end
 
+            # A create can land on a record that already existed, as when a
+            # repeated variant is added to the line already holding it. Its
+            # keys belong to what created it, so a different key for the same
+            # system is a conflict rather than a replacement.
+            def refuse_replacing_merged_keys!(resource)
+              return unless action_name == 'create' && !@external_reference_upsert && !resource.previously_new_record?
+
+              external_reference_params.each do |entry|
+                current = resource.external_id_for(entry[:system])
+                next if current.blank? || current == entry[:external_id].to_s.strip
+
+                raise ConflictingReference,
+                      I18n.t('spree.api.errors.external_reference_on_existing_record', system: Spree::ExternalReference.normalize_system(entry[:system]))
+              end
+            end
+
             def write_external_references(resource)
               # Cheapest guard first: a GET must not even parse the params.
-              return unless request.post? || request.patch? || request.put?
+              return unless payload_write?
               return if external_reference_params.blank?
               return unless resource.respond_to?(:assign_external_references)
               return unless resource.persisted?
+
+              refuse_replacing_merged_keys!(resource)
 
               # No reload needed: set_external_id resets the association, so
               # the serializer's read fetches the fresh rows.

@@ -74,6 +74,21 @@ RSpec.describe Spree::Api::V3::Admin::MediaController, type: :controller do
         )
       end
 
+      it 'refuses to fetch media under a system an integration reserved' do
+        allow(Spree).to receive(:reserved_external_reference_systems).and_return(['acme_platform'])
+
+        expect {
+          post :create, params: {
+            product_id: product.prefixed_id,
+            url: 'https://example.com/image.jpg',
+            external_references: { acme_platform: 'MEDIA-1' }
+          }, as: :json
+        }.not_to have_enqueued_job(Spree::Images::SaveFromUrlJob)
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response['error']['code']).to eq('reserved_external_reference')
+      end
+
       it 'records the identity on media created directly' do
         post :create, params: {
           product_id: product.prefixed_id,

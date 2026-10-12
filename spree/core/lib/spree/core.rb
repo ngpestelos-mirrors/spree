@@ -438,6 +438,16 @@ module Spree
   # @return [Array<String>]
   singleton_class.delegate :actor_classes, :actor_classes=, to: :spree_config
 
+  # External reference systems that belong to one integration. The Admin API
+  # refuses to create, change or delete a reference of a reserved system, so
+  # only the integration that owns the name writes it. An integration reserves
+  # its name in an initializer:
+  #
+  #   Spree.reserved_external_reference_systems << 'my_platform'
+  #
+  # @return [Array<String>]
+  singleton_class.delegate :reserved_external_reference_systems, :reserved_external_reference_systems=, to: :spree_config
+
 
   # Registry of the Getting Started onboarding tasks shown on the admin
   # dashboard. See {Spree::SetupTasks} for the extension API.

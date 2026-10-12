@@ -164,6 +164,18 @@ RSpec.describe Spree::Api::V3::Admin::Orders::ItemsController, type: :controller
       expect(json_response['external_references']).to eq('oms' => 'LINE-1')
     end
 
+    # Adding a variant already on the order merges into its line, which keeps
+    # the key it was created with.
+    it 'refuses a different key for a line a create merged into' do
+      line_item.set_external_id('oms', 'LINE-1')
+
+      post :create, params: { order_id: order.prefixed_id, variant_id: variant.prefixed_id, quantity: 1,
+                              external_references: { oms: 'LINE-2' } }, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(line_item.reload.external_id_for('oms')).to eq('LINE-1')
+    end
+
     it 'records the key a connector sends' do
       patch :update, params: { order_id: order.prefixed_id, id: line_item.prefixed_id,
                                external_references: { oms: 'LINE-2' } }, as: :json

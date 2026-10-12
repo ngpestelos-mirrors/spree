@@ -41,6 +41,7 @@ module Spree
                                :translatable_resources,
                                :taggable_types,
                                :actor_classes,
+                               :reserved_external_reference_systems,
                                :custom_fields,
                                :reporting,
                                :integrations,
@@ -75,7 +76,8 @@ module Spree
         # Core's defaults are concatenated in after_initialize below.
         %i[subscribers actor_classes commission_rules delivery_method_rules seller_requirements
            delivery_rate_providers tax_providers pricing_providers inventory_providers
-           payout_providers digital_asset_providers delivery_profile_types pickup_point_providers].each do |registry|
+           payout_providers digital_asset_providers delivery_profile_types pickup_point_providers
+           reserved_external_reference_systems].each do |registry|
           app.config.spree[registry] = []
         end
         app.config.spree.line_item_comparison_hooks = Set.new
