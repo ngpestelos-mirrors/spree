@@ -123,6 +123,9 @@ module Spree
 
               @resource = existing
               authorize_resource!(@resource, :update)
+              # This runs before a nested controller's own parent check, and
+              # rendering here ends the request before it would run.
+              authorize_parent!(@parent) if @parent.present?
               normalize_upsert_params!
               update
             end
@@ -141,6 +144,7 @@ module Spree
               existing = merge_target_for_create
               return if existing.nil?
 
+              authorize_parent!(@parent) if @parent.present?
               external_reference_params.each do |entry|
                 current = existing.external_id_for(entry[:system])
                 next if current.blank? || current == entry[:external_id].to_s.strip
