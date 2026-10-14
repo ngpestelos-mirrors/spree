@@ -39,6 +39,7 @@ module Spree
               # before it can turn into an update of the record that holds it.
               before_action :refuse_reserved_external_references
               before_action :update_instead_when_external_id_known, only: :create
+              before_action :refuse_replacing_merged_keys, only: :create
 
               rescue_from ConflictingReference do |error|
                 render_error(
@@ -121,7 +122,6 @@ module Spree
               return if existing.blank?
 
               @resource = existing
-              @external_reference_upsert = true
               authorize_resource!(@resource, :update)
               normalize_upsert_params!
               update
@@ -130,6 +130,29 @@ module Spree
             # Rewrites create-shaped keys into the ones this controller's
             # +update+ accepts. A no-op unless the two actions disagree.
             def normalize_upsert_params!; end
+
+            # A create can land on a record that already exists, as when a
+            # repeated variant is added to the line already holding it. Its
+            # keys belong to what created it, so a different key for the same
+            # system is a conflict, refused before the create writes anything.
+            def refuse_replacing_merged_keys
+              return if external_reference_params.blank?
+
+              existing = merge_target_for_create
+              return if existing.nil?
+
+              external_reference_params.each do |entry|
+                current = existing.external_id_for(entry[:system])
+                next if current.blank? || current == entry[:external_id].to_s.strip
+
+                raise ConflictingReference,
+                      I18n.t('spree.api.errors.external_reference_on_existing_record', system: Spree::ExternalReference.normalize_system(entry[:system]))
+              end
+            end
+
+            # The existing record a create would add to rather than make anew;
+            # nil for a controller whose creates always make a new record.
+            def merge_target_for_create; end
 
             # `external_references` lives in its own table, so it must not
             # reach the model's attribute writer.
@@ -189,30 +212,12 @@ module Spree
               super
             end
 
-            # A create can land on a record that already existed, as when a
-            # repeated variant is added to the line already holding it. Its
-            # keys belong to what created it, so a different key for the same
-            # system is a conflict rather than a replacement.
-            def refuse_replacing_merged_keys!(resource)
-              return unless action_name == 'create' && !@external_reference_upsert && !resource.previously_new_record?
-
-              external_reference_params.each do |entry|
-                current = resource.external_id_for(entry[:system])
-                next if current.blank? || current == entry[:external_id].to_s.strip
-
-                raise ConflictingReference,
-                      I18n.t('spree.api.errors.external_reference_on_existing_record', system: Spree::ExternalReference.normalize_system(entry[:system]))
-              end
-            end
-
             def write_external_references(resource)
               # Cheapest guard first: a GET must not even parse the params.
               return unless payload_write?
               return if external_reference_params.blank?
               return unless resource.respond_to?(:assign_external_references)
               return unless resource.persisted?
-
-              refuse_replacing_merged_keys!(resource)
 
               # No reload needed: set_external_id resets the association, so
               # the serializer's read fetches the fresh rows.

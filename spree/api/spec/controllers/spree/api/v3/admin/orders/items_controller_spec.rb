@@ -173,7 +173,20 @@ RSpec.describe Spree::Api::V3::Admin::Orders::ItemsController, type: :controller
                               external_references: { oms: 'LINE-2' } }, as: :json
 
       expect(response).to have_http_status(:unprocessable_content)
-      expect(line_item.reload.external_id_for('oms')).to eq('LINE-1')
+      expect(line_item.reload.quantity).to eq(1)
+      expect(line_item.external_id_for('oms')).to eq('LINE-1')
+    end
+
+    it "refuses a create whose key names another variant's line" do
+      line_item.set_external_id('oms', 'LINE-1')
+      other_variant = create(:variant, product: create(:product))
+
+      post :create, params: { order_id: order.prefixed_id, variant_id: other_variant.prefixed_id, quantity: 4,
+                              external_references: { oms: 'LINE-1' } }, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response['error']['code']).to eq('conflicting_external_reference')
+      expect(order.line_items.reload.map { |item| [item.variant_id, item.quantity] }).to eq([[variant.id, 1]])
     end
 
     it 'records the key a connector sends' do

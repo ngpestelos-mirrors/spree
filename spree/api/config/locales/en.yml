@@ -9,7 +9,8 @@ en:
         automatic_collection_curation: Products of an automatic collection are managed by its rules and can't be curated manually
         channel_inactive: The channel this API key is bound to is not active.
         channel_mismatch: The requested channel does not match the channel this API key is bound to.
-        external_reference_on_existing_record: This was added to an existing record that the %{system} system already knows by another key, so the new key was not recorded.
+        external_reference_on_existing_record: This would add to an existing record that the %{system} system already knows by another key, so nothing was added.
+        external_reference_on_other_variant: This key already names a line item for another variant, so it can't add this one.
         guest_checkout_not_allowed: You must be signed in to complete checkout.
         invalid_position: new_position must be an integer
         media_in_use: This file is still in use (%{places}). Pass detach=true to remove it everywhere and delete it, or clear those places first.

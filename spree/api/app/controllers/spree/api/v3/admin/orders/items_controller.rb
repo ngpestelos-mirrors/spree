@@ -83,6 +83,20 @@ module Spree
               params.permit(*permitted_attributes)
             end
 
+            # The line a create adds to, found as the add-item service finds it.
+            def merge_target_for_create
+              Spree.line_item_by_variant_finder.new.execute(cart: @parent, variant: variant, options: permitted_params[:options]&.to_h || {})
+            end
+
+            # A key naming a line of another variant cannot add this one:
+            # updating that line would change the wrong item.
+            def normalize_upsert_params!
+              return if params[:variant_id].blank? || params[:variant_id].to_s == @resource.variant.prefixed_id
+
+              raise Spree::Api::V3::Admin::Concerns::ExternalReferences::ConflictingReference,
+                    I18n.t('spree.api.errors.external_reference_on_other_variant')
+            end
+
             private
 
             # price is tri-state — absent leaves pricing alone, an amount
