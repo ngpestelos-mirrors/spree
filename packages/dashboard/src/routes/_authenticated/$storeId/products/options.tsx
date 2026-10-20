@@ -315,14 +315,15 @@ function EditOptionTypeSheet({
     try {
       // The record saves first and is marked clean, so a retry after a failed
       // custom field save sends only the custom fields.
-      if (form.formState.isDirty) {
+      const savesRecord = form.formState.isDirty
+      if (savesRecord) {
         await updateMutation.mutateAsync({
           ...values,
           option_values: values.option_values.map(valueToParam),
         })
         form.reset(values)
       }
-      if (!(await customFields.save())) return
+      if (!(await customFields.save({ announce: !savesRecord }))) return
       // The sheet closes here; the `useOptionType` cache invalidation done by
       // the mutation hook re-hydrates the form via `useEffect` the next time
       // the sheet opens. Don't reset from the update response — the v3

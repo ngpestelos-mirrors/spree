@@ -297,11 +297,12 @@ function EditTaxRateSheet({
     try {
       // The record saves first and is marked clean, so a retry after a failed
       // custom field save sends only the custom fields.
-      if (form.formState.isDirty) {
+      const savesRecord = form.formState.isDirty
+      if (savesRecord) {
         await updateMutation.mutateAsync(taxRateValuesToParams(values))
         form.reset(values)
       }
-      if (!(await customFields.save())) return
+      if (!(await customFields.save({ announce: !savesRecord }))) return
       onOpenChange(false)
     } catch (err) {
       if (!mapSpreeErrorsToForm(err, form.setError)) throw err
