@@ -14,7 +14,7 @@ If you need a new injection point in a built-in page, open a PR adding `<Slot na
 |---|---|---|
 | Every page | Page header | `page.actions`, `page.actions_dropdown` |
 | Every page | Tabbed sub-navigation | `page.tabs` |
-| Products | Product | `product.form_sidebar` |
+| Products | Product | `product.form_sidebar`, `product.variant_sheet`, `product.media_sheet` |
 | Products | Category | `category.form_sidebar` |
 | Products | Collection | `collection.form_sidebar` |
 | Products | Catalog | `catalog.form_sidebar` |
@@ -103,6 +103,22 @@ On host-form pages your widget renders inside the page's `<form>` element, so a 
 | Use | Add a card scoped to the product being edited (e.g., a "Brand" picker, wishlist stats, sync status from an external system) |
 | Context | `{ product }` — the full `Product` record from the Admin API |
 | Host form | **Yes** — form key `product` |
+
+#### `product.variant_sheet`
+
+| Where | The variant edit sheet on the product page, after its sections |
+|---|---|
+| Use | Per-variant panels — supplier codes, sync state for one variant. The dashboard's own custom fields card renders here |
+| Context | `{ variant, onSave }` — `variant` is the variant's row in the product form (`variant.id` is absent until the product is saved); `onSave(handler)` registers an async function the sheet runs on Done, which keeps the sheet open when it resolves `false`, and returns an unregister function |
+| Host form | No — the sheet's own fields save with the product. A widget that writes its own record saves it through `onSave`, so Done keeps it and Cancel drops it |
+
+#### `product.media_sheet`
+
+| Where | The media edit sheet on the product page, after its fields |
+|---|---|
+| Use | Per-file panels — rights and licensing, an external asset ID. The dashboard's own custom fields card renders here |
+| Context | `{ media, onSave }` — `media` is the file's row in the product form (`media.id` is absent until the product is saved); `onSave` works as in `product.variant_sheet` |
+| Host form | No — same as `product.variant_sheet` |
 
 #### `category.form_sidebar`
 

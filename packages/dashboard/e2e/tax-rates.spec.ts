@@ -1,5 +1,12 @@
 import { expect, type Page, test } from '@playwright/test'
-import { gotoIndex, login, openRowMenu, rowButton } from './helpers'
+import {
+  gotoIndex,
+  login,
+  openRowMenu,
+  rowButton,
+  saveCustomFieldInSheet,
+  withCustomFieldDefinition,
+} from './helpers'
 
 const TAX_RATES_PATH = (storeId: string) => `/${storeId}/settings/taxes/rates`
 const CTA = /add tax rate/i
@@ -66,6 +73,21 @@ test.describe('tax rates', () => {
 
     const row = page.getByRole('row').filter({ has: rowButton(page, name) })
     await expect(row.getByText('12.5%')).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('saves a custom field with the rate', async ({ page }) => {
+    const creds = await login(page)
+    await withCustomFieldDefinition(page, creds, 'tax_rate', async (label) => {
+      await gotoIndex(page, TAX_RATES_PATH(creds.store_id), CTA)
+      const name = `E2E Custom Field Rate ${Date.now()}`
+      await createTaxRate(page, { name, ratePercent: '5' })
+      await expect(rowButton(page, name)).toBeVisible({ timeout: 15_000 })
+
+      // The field rides on the sheet's own Save, like the rate's attributes.
+      await rowButton(page, name).click()
+      await expect(page.getByRole('dialog').getByLabel(label)).toBeVisible({ timeout: 15_000 })
+      await saveCustomFieldInSheet(page, page.url(), label, 'VAT-R5')
+    })
   })
 
   // The API stores the fraction (0.07125); the form must read back exactly

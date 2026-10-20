@@ -51,6 +51,10 @@ import { useDeferredValue, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import {
+  DraftCustomFieldsCard,
+  useCustomFieldsDraft,
+} from '../../../../components/spree/custom-fields/custom-fields-inline'
+import {
   mediaPreviewUrl,
   mediaThumbnailUrl,
   useCreateMediaLibraryFile,
@@ -462,25 +466,33 @@ function MediaDetailSheet({
   }
 
   const references = usage.data?.data ?? []
+  const customFields = useCustomFieldsDraft('media', media?.id ?? '')
 
-  const isDirty = !!media && alt !== savedAlt
+  const altDirty = !!media && alt !== savedAlt
+  const isDirty = altDirty || customFields.isDirty
 
   // An explicit save, not save-on-blur: blur is invisible, so a merchant had
   // no way to tell whether their edit stuck.
-  function saveAlt() {
-    if (!media || !isDirty) return
+  const [saving, setSaving] = useState(false)
 
-    const submitted = alt
-    updateFile.mutate(
-      { id: media.id, alt: submitted },
-      {
-        onSuccess: () => {
-          setSavedAlt(submitted)
-          toastManager.add({ type: 'success', title: t('admin.messages.saved') })
-        },
-        onError: () => toastManager.add({ type: 'error', title: t('admin.errors.failed_to_save') }),
-      },
-    )
+  async function save() {
+    if (!media || !isDirty || saving) return
+
+    setSaving(true)
+    try {
+      if (altDirty) {
+        const submitted = alt
+        await updateFile.mutateAsync({ id: media.id, alt: submitted })
+        setSavedAlt(submitted)
+      }
+      if (await customFields.save()) {
+        toastManager.add({ type: 'success', title: t('admin.messages.saved') })
+      }
+    } catch {
+      toastManager.add({ type: 'error', title: t('admin.errors.failed_to_save') })
+    } finally {
+      setSaving(false)
+    }
   }
 
   // Closing with an unsaved edit would drop it silently, so ask first.
@@ -560,12 +572,14 @@ function MediaDetailSheet({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && isDirty) {
                       e.preventDefault()
-                      saveAlt()
+                      save()
                     }
                   }}
                   placeholder={t('admin.fields.media.alt.placeholder')}
                 />
               </Field>
+
+              {canWrite && <DraftCustomFieldsCard draft={customFields} hideWhenEmpty />}
 
               <dl className="space-y-2 text-sm">
                 <FileFact label={t('admin.media_library.facts.type')} value={media.content_type} />
@@ -621,8 +635,12 @@ function MediaDetailSheet({
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                   {t('admin.actions.cancel')}
                 </Button>
-                <Button type="button" disabled={!isDirty || updateFile.isPending} onClick={saveAlt}>
-                  {updateFile.isPending && <Loader2Icon className="size-4 animate-spin" />}
+                <Button
+                  type="button"
+                  disabled={!isDirty || saving || updateFile.isPending}
+                  onClick={save}
+                >
+                  {saving && <Loader2Icon className="size-4 animate-spin" />}
                   {t('admin.actions.save')}
                 </Button>
               </SheetFooter>

@@ -27,6 +27,7 @@ import {
   deliveryMethodFormSchema,
   deliveryMethodValuesToParams,
 } from '../../../schemas/delivery-method'
+import { DraftCustomFieldsCard, useCustomFieldsDraft } from '../custom-fields/custom-fields-inline'
 import { DeliveryMethodFormCards } from './delivery-method-form'
 
 /** API decimals arrive as strings ("0.0"); show blank instead of a noisy zero. */
@@ -87,6 +88,8 @@ export function DeliveryMethodSheet({
   const { data: fulfillmentProviders } = useFulfillmentProviders()
   const createMutation = useCreateDeliveryMethod()
   const updateMutation = useUpdateDeliveryMethod(methodId ?? '')
+  // Edit only: a method being created has no id to hang values on yet.
+  const customFields = useCustomFieldsDraft('delivery_method', methodId ?? '')
 
   // Saving sends the full rule set for reconciliation, so the form must not be
   // reachable until the existing rules have loaded — otherwise a quick save
@@ -174,7 +177,13 @@ export function DeliveryMethodSheet({
   async function onSubmit(values: DeliveryMethodFormValues) {
     try {
       if (editing) {
-        await updateMutation.mutateAsync(deliveryMethodValuesToParams(values))
+        // The method saves first and is marked clean, so a retry after a
+        // failed custom field save sends only the custom fields.
+        if (form.formState.isDirty) {
+          await updateMutation.mutateAsync(deliveryMethodValuesToParams(values))
+          form.reset(values)
+        }
+        if (!(await customFields.save())) return
       } else {
         await createMutation.mutateAsync({
           ...deliveryMethodValuesToParams(values),
@@ -224,6 +233,7 @@ export function DeliveryMethodSheet({
                 // editing still needs the picker to move a method or clear it.
                 zonePreselected={!methodId && !!zoneId}
               />
+              {editing && <DraftCustomFieldsCard draft={customFields} hideWhenEmpty />}
             </div>
             <SheetFooter>
               <Button
@@ -236,7 +246,10 @@ export function DeliveryMethodSheet({
               </Button>
               <Button
                 type="submit"
-                disabled={form.formState.isSubmitting || (editing && !form.formState.isDirty)}
+                disabled={
+                  form.formState.isSubmitting ||
+                  (editing && !form.formState.isDirty && !customFields.isDirty)
+                }
               >
                 {form.formState.isSubmitting
                   ? editing
