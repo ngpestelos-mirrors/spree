@@ -52,7 +52,7 @@
     "@spree/seller-sdk": "workspace:*",
     "@tanstack/router-plugin": "^1.168.47",
     "@tanstack/virtual-file-routes": "^1.162.0",
-    "lucide-react": "^1.60.0",
+    "lucide-react": "^1.61.0",
     "zod": "^4.6.7"
   },
   "peerDependencies": {
@@ -61,14 +61,14 @@
     "@spree/dashboard-ui": "workspace:^",
     "@tanstack/react-query": "^5.104.5",
     "@tanstack/react-router": "^1.170.45",
-    "i18next": "^26.5.3",
+    "i18next": "^26.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-hook-form": "^7.90.0",
     "react-i18next": "^17.1.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.14",
+    "@biomejs/biome": "^2.6.1",
     "@spree/admin-sdk": "workspace:*",
     "@spree/dashboard-core": "workspace:*",
     "@spree/dashboard-ui": "workspace:*",
@@ -78,13 +78,13 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.1",
     "@vitejs/plugin-react": "^6.0.1",
-    "i18next": "^26.5.3",
+    "i18next": "^26.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-hook-form": "^7.90.0",
     "react-i18next": "^17.1.0",
     "tsup": "^9.0.0",
     "typescript": "~7.0.2",
-    "vite": "^8.3.4"
+    "vite": "^8.3.5"
   }
 }
