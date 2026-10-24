@@ -86,7 +86,7 @@
     "date-fns": "4.4.0",
     "date-fns-tz": "3.2.0",
     "flag-icons": "7.6.0",
-    "lucide-react": "1.60.0",
+    "lucide-react": "1.61.0",
     "react-colorful": "5.8.1",
     "react-day-picker": "10.0.2",
     "recharts": "3.10.1",
@@ -99,6 +99,6 @@
     "@types/react-dom": "^19.2.3",
     "tailwindcss": "^4.2.4",
     "typescript": "~7.0.2",
-    "vite": "^8.3.4"
+    "vite": "^8.3.5"
   }
 }
