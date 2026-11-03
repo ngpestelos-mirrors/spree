@@ -1,3 +1,13 @@
+## 2026-11-03: OrderChange confirm moves no money; the edit screen previews statelessly and applies in one call
+
+**Context:** Implementing `6.1-order-change-substrate.md` (Phases 1–4) left three questions the plan did not settle: whether confirming a change set charges or refunds at the gateway, how the admin edit screen drives a change set, and how returns, exchanges and claims link to theirs.
+
+**Decision:** Confirm applies the actions, re-sums totals and re-derives `payment_status`, and moves no money; it exposes `balance_delta` to `after_confirm` for an extension that wants automatic settlement, and its in-transaction hook is `before_confirm` (not the planned `before_settle`). The edit screen previews through `POST /orders/:id/order_changes/preview`, which persists nothing, and saves through `POST /orders/:id/order_changes` with `confirm: true`, which begins, requests and confirms in one call. Change sets link to their business record from the change set side (`return_id`, `exchange_id`, `claim_id`), because an exchange runs two of them. Only kinds with an applier are registered.
+
+**Consequences:** Placed-order edits leave a balance for the merchant to collect or refund, as 6.0 edits do. Refunds, store credit and the exchange balance fee stay in the return, exchange and claim workflows; only restocking and replacement shipments move onto the substrate. No change set is opened by visiting the edit screen, so an abandoned tab never blocks another edit. Canceled and declined change sets are kept, with no purge task until the table's growth says one is needed.
+
+**Plan amended:** `6.1-order-change-substrate.md` (Key Decisions, Confirm, Phases 3–4, Open Questions), `6.0-service-workflows.md` (Confirm hook name).
+
 ## 2026-10-06: Custom fields stay a merchant-facing feature, not a data modelling system
 
 **Context:** Custom fields were heading toward a general-purpose schema (record references, files, value lists, reusable content types) while basic gaps went unfixed: admin-only fields leaked through storefront search, a definition's type can change under existing values, shoppers cannot fill a field in at checkout, and core itself stores integration data in auto-created definitions. Revised 2026-11-02 after a review against the code and the plans written since, with 6.0.0 already released.
