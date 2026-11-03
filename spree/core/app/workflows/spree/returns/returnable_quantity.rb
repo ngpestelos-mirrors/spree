@@ -9,6 +9,31 @@ module Spree
     module ReturnableQuantity
       extend ActiveSupport::Concern
 
+      # Units already promised back, per fulfillment item — every return and
+      # exchange line that is not canceled, in two queries however many items
+      # are asked about.
+      #
+      # @param fulfillment_item_ids [Array<Integer>]
+      # @return [Hash{Integer => Integer}] fulfillment item id => units
+      def self.claimed_quantities(fulfillment_item_ids)
+        return {} if fulfillment_item_ids.empty?
+
+        returned = Spree::ReturnLineItem.
+                   joins(:return).
+                   where(fulfillment_item_id: fulfillment_item_ids).
+                   where.not(Spree::Return.table_name => { status: 'canceled' }).
+                   group(:fulfillment_item_id).
+                   sum(:quantity)
+        exchanged = Spree::ExchangeLineItem.
+                    joins(:exchange).
+                    where(fulfillment_item_id: fulfillment_item_ids).
+                    where.not(Spree::Exchange.table_name => { status: 'canceled' }).
+                    group(:fulfillment_item_id).
+                    sum(:quantity)
+
+        returned.merge(exchanged) { |_id, returned_units, exchanged_units| returned_units + exchanged_units }
+      end
+
       private
 
       # @param fulfillment_item [Spree::FulfillmentItem]
@@ -16,18 +41,9 @@ module Spree
       #   this request, keyed by fulfillment item id
       # @return [Integer]
       def returnable_quantity_for(fulfillment_item, requested: {})
-        returned = Spree::ReturnLineItem.
-                   joins(:return).
-                   where(fulfillment_item_id: fulfillment_item.id).
-                   where.not(Spree::Return.table_name => { status: 'canceled' }).
-                   sum(:quantity)
-        exchanged = Spree::ExchangeLineItem.
-                    joins(:exchange).
-                    where(fulfillment_item_id: fulfillment_item.id).
-                    where.not(Spree::Exchange.table_name => { status: 'canceled' }).
-                    sum(:quantity)
+        claimed = Spree::Returns::ReturnableQuantity.claimed_quantities([fulfillment_item.id]).fetch(fulfillment_item.id, 0)
 
-        fulfillment_item.quantity.to_i - returned - exchanged - requested.fetch(fulfillment_item.id, 0)
+        fulfillment_item.quantity.to_i - claimed - requested.fetch(fulfillment_item.id, 0)
       end
 
       # Checks each item's quantity against what is still returnable and

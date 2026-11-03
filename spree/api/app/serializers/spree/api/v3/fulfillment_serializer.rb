@@ -7,7 +7,9 @@ module Spree
                  fulfillment_type: [:string, enum: %w[shipping digital pickup pickup_point], enum_type_name: 'FulfillmentType'],
                  tracking: [:string, nullable: true], tracking_url: [:string, nullable: true],
                  fulfilled_at: [:string, nullable: true], delivered_at: [:string, nullable: true], unpriced: :boolean,
-                 items: 'Array<{ item_id: string; variant_id: string; quantity: number }>',
+                 items: 'Array<{ item_id: string; variant_id: string; quantity: number; returnable_quantity: number; ' \
+                        'non_returnable_reason: string | null; units: Array<{ fulfillment_item_id: string; quantity: number; ' \
+                        'returnable_quantity: number; non_returnable_reason: string | null }> }>',
                  pickup_point_data: ['Record<string, unknown>', nullable: true],
                  selected_delivery_rate_id: [:string, nullable: true]
 
@@ -38,16 +40,35 @@ module Spree
 
         attributes fulfilled_at: :iso8601, delivered_at: :iso8601
 
-        # Which items (and how many) are in this fulfillment.
-        # A line item can be split across fulfillments with different quantities.
+        # Which items (and how many) are in this fulfillment, one row per line
+        # item. A line item can be split across fulfillments with different
+        # quantities, and within one fulfillment across several units.
+        #
+        # `units` names each shipped unit, because a return is of a unit that
+        # travelled: its `fulfillment_item_id` is what opening a return takes.
+        # `returnable_quantity` is what the customer may still send back now,
+        # as the store's return validators judge it, and
+        # `non_returnable_reason` says why when that is nothing.
         attribute :items do |fulfillment|
-          fulfillment.manifest.filter_map do |item|
-            next unless item.line_item
+          eligibility = fulfillment.order&.returns_eligibility
+
+          fulfillment.fulfillment_items.group_by { |unit| [unit.variant_id, unit.line_item_id] }.filter_map do |_key, units|
+            line_item = units.first.line_item
+            next unless line_item
+
+            unit_rows = units.map do |unit|
+              returnability = eligibility&.for_unit(unit) || { returnable_quantity: 0, non_returnable_reason: 'order_not_completed' }
+              { fulfillment_item_id: unit.prefixed_id, quantity: unit.quantity }.merge(returnability)
+            end
+            returnable_quantity = unit_rows.sum { |row| row[:returnable_quantity] }
 
             {
-              item_id: item.line_item.prefixed_id,
-              variant_id: item.variant.prefixed_id,
-              quantity: item.quantity
+              item_id: line_item.prefixed_id,
+              variant_id: units.first.variant.prefixed_id,
+              quantity: units.sum(&:quantity),
+              returnable_quantity: returnable_quantity,
+              non_returnable_reason: returnable_quantity.zero? ? unit_rows.first[:non_returnable_reason] : nil,
+              units: unit_rows
             }
           end
         end
