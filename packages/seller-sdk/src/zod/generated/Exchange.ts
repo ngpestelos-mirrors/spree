@@ -1,6 +1,7 @@
 // This file is auto-generated. Do not edit directly.
 import { z } from 'zod';
 import { ExchangeLineItemSchema } from './ExchangeLineItem';
+import { OrderSchema } from './Order';
 import { ReasonSchema } from './Reason';
 
 export const ExchangeSchema = z.object({
@@ -17,6 +18,7 @@ export const ExchangeSchema = z.object({
   fulfilled_at: z.string().nullable(),
   canceled_at: z.string().nullable(),
   reason: ReasonSchema.optional(),
+  order: OrderSchema.optional(),
   exchange_line_items: z.array(ExchangeLineItemSchema).optional(),
   stock_location_id: z.string().nullable(),
 });

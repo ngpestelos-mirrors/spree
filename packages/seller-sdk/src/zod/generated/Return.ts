@@ -1,6 +1,7 @@
 // This file is auto-generated. Do not edit directly.
 import { z } from 'zod';
 import { CustomFieldSchema } from './CustomField';
+import { OrderSchema } from './Order';
 import { ReasonSchema } from './Reason';
 import { ReturnLineItemSchema } from './ReturnLineItem';
 
@@ -22,6 +23,7 @@ export const ReturnSchema = z.object({
   refunded_at: z.string().nullable(),
   canceled_at: z.string().nullable(),
   reason: ReasonSchema.optional(),
+  order: OrderSchema.optional(),
   return_line_items: z.array(ReturnLineItemSchema).optional(),
   custom_fields: z.array(CustomFieldSchema).optional(),
   stock_location_id: z.string().nullable(),
