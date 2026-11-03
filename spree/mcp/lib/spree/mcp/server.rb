@@ -9,6 +9,23 @@ module Spree
     # request) is not what mounts this. An ordinary admin API controller does,
     # and hands the JSON-RPC message to {MCP::Server#handle_json}.
     module Server
+      # The protocol server, plus the 6.0.0 tool names kept callable through
+      # 6.0.x. They answer `tools/call` but are not in `tools/list`: a client
+      # that learned one keeps working, and a new one is shown only the
+      # current names. The gem lists `@tools` and looks a call up through
+      # `#tools`, which is what this adds to.
+      class AdminServer < ::MCP::Server
+        # @param aliases [Array<Class<MCP::Tool>>]
+        def aliases=(aliases)
+          @aliases = aliases.to_h { |tool| [tool.name_value, tool] }
+        end
+
+        def tools
+          listed = super
+          @aliases.present? ? @aliases.merge(listed) : listed
+        end
+      end
+
       # What the model is told about using this server at discovery, so it
       # reaches for the discovery tools before guessing at names and filters.
       INSTRUCTIONS = <<~TEXT.freeze
@@ -47,7 +64,7 @@ module Spree
         # @param context [Spree::AgentTools::Context] who is asking, and where
         # @return [MCP::Server]
         def for(context)
-          server = ::MCP::Server.new(
+          server = AdminServer.new(
             name: 'spree-admin',
             title: "#{context.store.name} (Spree admin)",
             version: Spree.version,
@@ -56,6 +73,7 @@ module Spree
             server_context: { store_id: context.store.id }
           )
 
+          server.aliases = Spree.admin_agent_tools.aliases_for(context).map { |tool| ToolAdapter.build(tool) }
           register_resources(server, context)
           server
         end

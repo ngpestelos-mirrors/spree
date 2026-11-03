@@ -84,6 +84,12 @@ module Spree
         entry.writable_attribute_names.presence
       end
 
+      def actions_for(entry)
+        Spree::AgentTools::OperationCatalog.all.
+          select { |operation| operation.resource_key == entry.key && context.permitted?(operation.permission) }.
+          map(&:name).sort.presence
+      end
+
       def describe(entry, detailed:)
         {
           resource: entry.key,
@@ -96,6 +102,10 @@ module Spree
           # which is what create_resource and update_resource tell it to do.
           # Offered only where the caller could actually write.
           writable_attributes: writable_attributes_for(entry),
+          # The action tools that act on this resource — cancel, approve,
+          # capture — so a model that found an order learns what it can do
+          # to one without scanning the whole tool list.
+          actions: actions_for(entry),
           # What goes inside a list-valued attribute. Without it a model sees
           # `variants` and has no idea a whole variant fits there, so it
           # creates the product and then adds each variant separately.

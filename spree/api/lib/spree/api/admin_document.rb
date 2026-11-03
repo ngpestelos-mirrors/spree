@@ -1,0 +1,195 @@
+module Spree
+  module Api
+    # The Admin API's OpenAPI document as agents read it: core's `admin.yaml`
+    # merged with the `openapi/admin.yaml` each extension ships in its gem.
+    #
+    # An extension documents its admin endpoints the way core does — rswag
+    # integration specs, generated into a file — so its operations reach
+    # agents, API docs and SDKs from the same contract. Nothing registers the
+    # file: an engine that has one is read.
+    #
+    # Loaded once, lazily: core's document alone is well over a megabyte, and
+    # an installation with no agent client should never pay for parsing it.
+    #
+    # See docs/plans/6.0-agent-tools-from-openapi.md.
+    module AdminDocument
+      # Where an extension keeps its generated document, relative to its root.
+      EXTENSION_PATH = File.join('openapi', 'admin.yaml')
+
+      # Two documents describing the same operation or the same component
+      # differently. Raised rather than resolved: a silent override would let
+      # one gem replace another's endpoint.
+      class ConflictError < StandardError; end
+
+      class << self
+        # @return [Hash] the merged document
+        def document
+          @document ||= load_document
+        end
+
+        # Which document an operation came from, so a contract spec can check
+        # an extension against its own operations only.
+        #
+        # @param path [String] the OpenAPI path, e.g. `/api/v3/admin/quotes/{id}/send`
+        # @param verb [String, Symbol]
+        # @return [String, nil] the engine's name, or `spree_api` for core
+        def source_of(path, verb)
+          document
+          @sources[[path, verb.to_s.downcase]]
+        end
+
+        # Forgets the parsed document, so the next reader loads it again —
+        # after a code reload, or in a spec that added a document.
+        #
+        # @return [void]
+        def reset!
+          @document = nil
+          @sources = nil
+        end
+
+        # Core's generated document: `docs/` in a source checkout, or the copy
+        # the release packs into the gem. Resolved lazily: the engine class
+        # does not exist yet while this file loads.
+        #
+        # @return [Pathname]
+        def core_path
+          source = Spree::Api::Engine.root.join('..', '..', 'docs', 'api-reference', 'admin.yaml')
+          source.exist? ? source : Spree::Api::Engine.root.join(EXTENSION_PATH)
+        end
+
+        # Every other engine that ships a document, and the application
+        # itself, which may add admin endpoints of its own.
+        #
+        # @return [Hash{String => Pathname}] engine name => document
+        def extension_paths
+          engines = Rails.application.railties.grep(Rails::Engine) + [Rails.application]
+          engines.each_with_object({}) do |engine, paths|
+            next if engine.is_a?(Spree::Api::Engine)
+
+            path = engine.root&.join(EXTENSION_PATH)
+            next unless path&.exist?
+            next if path.expand_path == core_path.expand_path
+
+            paths[engine.engine_name] = path
+          end
+        end
+
+        # A request body is declared once per endpoint and published as a
+        # component, so the operation carries a `$ref` to it rather than the
+        # properties themselves. A body that builds on a shared shape is an
+        # `allOf` of that shape and its own fields, read as one object.
+        # Followed a few hops, which is as deep as the generated document
+        # nests them.
+        #
+        # @param schema [Hash, nil] a schema that may be a reference
+        # @return [Hash, nil] the schema it names
+        def resolve_schema(schema, depth = 0)
+          return unless schema.is_a?(Hash)
+          return if depth > 3
+          return merge_all_of(schema['allOf'], depth) if schema.key?('allOf')
+          return schema unless schema.key?('$ref')
+
+          resolve_schema(component(schema['$ref']), depth + 1)
+        end
+
+        # The schema with every reference replaced by what it names, all the
+        # way down, so it can be handed to a client that has no document to
+        # look `$ref`s up in. A reference that leads back to itself stops at
+        # an untyped object rather than recursing.
+        #
+        # @param schema [Object]
+        # @return [Object]
+        def inline(schema, seen = [])
+          case schema
+          when Array
+            schema.map { |item| inline(item, seen) }
+          when Hash
+            return inline_reference(schema, seen) if schema.key?('$ref')
+            return inline(merge_all_of(schema['allOf'], 0) || {}, seen) if schema.key?('allOf')
+
+            schema.transform_values { |value| inline(value, seen) }
+          else
+            schema
+          end
+        end
+
+        private
+
+        def inline_reference(schema, seen)
+          reference = schema['$ref']
+          return { 'type' => 'object' } if seen.include?(reference)
+
+          target = component(reference)
+          target ? inline(target, seen + [reference]) : { 'type' => 'object' }
+        end
+
+        def component(reference)
+          name = reference.to_s.split('/').last
+          document.dig('components', 'schemas', name)
+        end
+
+        def merge_all_of(parts, depth)
+          parts.filter_map { |part| resolve_schema(part, depth + 1) }.each_with_object({}) do |part, merged|
+            merged['properties'] = (merged['properties'] || {}).merge(part['properties'] || {})
+            merged['required'] = (merged['required'] || []) | Array(part['required'])
+          end
+        end
+
+        def load_document
+          @sources = {}
+          merged = read(core_path)
+          record_sources(merged, 'spree_api')
+
+          extension_paths.each do |engine, path|
+            merge!(merged, read(path), engine)
+          end
+
+          merged
+        end
+
+        # A document that is missing or does not parse is not a boot failure:
+        # its operations are simply not offered, which is the safe direction.
+        def read(path)
+          return {} unless File.exist?(path)
+
+          YAML.unsafe_load_file(path) || {}
+        rescue StandardError => e
+          Rails.logger.warn("[Spree] could not read the admin API document #{path}: #{e.class}: #{e.message}")
+          {}
+        end
+
+        def record_sources(document, engine)
+          Array(document['paths']).each do |path, operations|
+            operations.each_key { |verb| @sources[[path, verb.to_s]] = engine }
+          end
+        end
+
+        def merge!(merged, addition, engine)
+          merged['paths'] ||= {}
+          Array(addition['paths']).each do |path, operations|
+            existing = merged['paths'][path] ||= {}
+            operations.each do |verb, operation|
+              if existing.key?(verb)
+                raise ConflictError,
+                      "#{verb.upcase} #{path} is documented by both #{@sources[[path, verb]]} and #{engine}"
+              end
+
+              existing[verb] = operation
+              @sources[[path, verb]] = engine
+            end
+          end
+
+          schemas = merged['components'] ||= {}
+          schemas = schemas['schemas'] ||= {}
+          Array(addition.dig('components', 'schemas')).each do |name, schema|
+            if schemas.key?(name) && schemas[name] != schema
+              raise ConflictError, "the #{name} schema is defined differently by #{engine} and an earlier document"
+            end
+
+            schemas[name] = schema
+          end
+        end
+      end
+    end
+  end
+end
