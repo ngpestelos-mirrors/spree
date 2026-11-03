@@ -26,13 +26,18 @@ class AgentTool
     # tweak it is the documented extension path, and with bare ivars the
     # subclass would come back `mutating? == false` — writing to the store
     # immediately, with no approval card, no permission gate and no argument
-    # validation. Inheritance here is a safety property, not a convenience.
     # The parameter every generic resource tool takes for a resource that
     # lives under another record, such as an order's items.
     PARENT_ID_DESCRIPTION = 'For a resource reached through another record (describe_resource names ' \
                             'it as parent, e.g. an order for its items, discounts and fees): that ' \
                             'record\'s id as shown in search results'.freeze
 
+    # Declarations live in class attributes rather than plain class-level
+    # instance variables so a subclass inherits them. Subclassing a tool to
+    # tweak it is the documented extension path, and with bare ivars the
+    # subclass would come back `mutating? == false` — writing to the store
+    # immediately, with no approval card, no permission gate and no argument
+    # validation. Inheritance here is a safety property, not a convenience.
     class_attribute :declared_tool_name, instance_accessor: false
     class_attribute :declared_description, instance_accessor: false
     class_attribute :declared_permission, instance_accessor: false
@@ -202,7 +207,6 @@ class AgentTool
     #
     # @param key [String]
     # @return [Hash]
-
     def unknown_resource(key)
       {
         error: "Unknown resource #{key.to_s.inspect}. Call describe_resource for the list.",

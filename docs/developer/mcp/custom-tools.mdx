@@ -152,7 +152,7 @@ Four things worth knowing when you write one:
 A tool is offered only to a credential holding its `permission`, so a key that cannot read purchasing never learns `supplier_stock` exists.
 
 <Note>
-  `Spree.admin_agent_tools.expose_workflows` is deprecated and has no effect: an exposed workflow behind an endpoint is already that endpoint's tool, and one with no endpoint is not offered. It becomes a no-op in 6.1 and is removed in 7.0. Tool names and parameters from 6.0.0 that changed keep answering through 6.0.x, and a call that uses one says what to send instead.
+  `Spree.admin_agent_tools.expose_workflows` is deprecated and has no effect: an exposed workflow behind a documented endpoint is already that endpoint's tool, and one whose endpoint is not in any OpenAPI document is not offered. It is removed in 7.0. Tool names and parameters from 6.0.0 that changed keep answering through 6.0.x, and a call that uses one says what to send instead.
 </Note>
 
 ## Which registry

@@ -134,6 +134,35 @@ RSpec.describe Spree::AgentTools::OperationTool do
     end
   end
 
+  # A read becomes a tool only when its spec opts it in; it then answers
+  # with what it read and takes its arguments as the query.
+  describe 'an opted-in read' do
+    let(:entry) do
+      Spree::AgentTools::OperationCatalog::Entry.new(
+        name: 'promotion_rules_types', verb: 'get', path: '/api/v3/admin/promotion_rules/types',
+        description: 'List promotion rule types', summary: 'List promotion rule types',
+        permission: 'read_promotions', resource_key: 'promotion_rules', path_params: [],
+        body_properties: {}, body_required: [], path_descriptions: {}, mutating: false,
+        listed: true, legacy_parameters: {}
+      )
+    end
+
+    it 'returns the data the endpoint answered with' do
+      result = described_class.for(entry).new(context).call
+
+      expect(result[:error]).to be_nil
+      expect(result[:data]).to be_present
+    end
+  end
+
+  describe 'describe_resource' do
+    it 'names the parent a resource is written under' do
+      described = tool('describe_resource').call(resource: 'variants')
+
+      expect(described[:resources].first[:parent]).to eq('products')
+    end
+  end
+
   # The 6.0.0 tools took a workflow's keywords. Through 6.0.x those calls keep
   # working, and the result says what to send instead.
   describe 'a call written for 6.0.0' do

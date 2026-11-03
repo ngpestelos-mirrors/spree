@@ -66,7 +66,8 @@ module Spree
             operations.filter_map do |verb, operation|
               next unless operation.is_a?(Hash) && (WRITE_VERBS + ['get']).include?(verb)
 
-              { path: path, verb: verb, operation: operation, route: routes[[verb, path]] }
+              { path: path, verb: verb, operation: operation, route: routes[[verb, path]],
+                path_parameters: Array(operations['parameters']) }
             end
           end
         end
@@ -95,6 +96,24 @@ module Spree
           end
         end
 
+        # Every admin route, with its path in OpenAPI form, from the engine's
+        # routes — where an extension's admin routes are drawn too. Public for
+        # the contract spec, which checks each against the document.
+        #
+        # @return [Array<Hash>] `{verb:, path:, controller:, action:}`
+        def admin_routes
+          Spree::Core::Engine.routes.routes.flat_map do |route|
+            controller_path = route.defaults[:controller].to_s
+            next [] unless controller_path.start_with?('spree/api/v3/admin')
+
+            path = route.path.spec.to_s.sub('(.:format)', '').gsub(/:([a-z_]+)/, '{\1}')
+            route.verb.to_s.split('|').map do |verb|
+              { verb: verb.downcase, path: path, controller: controller_class(controller_path),
+                action: route.defaults[:action].to_s }
+            end
+          end
+        end
+
         # The tool name an operation derives, before any `operationId`.
         #
         # @return [String]
@@ -114,7 +133,8 @@ module Spree
           name = operation['operationId'].presence || derived_name(candidate)
           scope = scope_of(controller)
           read = candidate[:verb] == 'get'
-          body = request_body(operation)
+          # A read takes its arguments as query parameters, a write as its body.
+          body = read ? query_schema(operation) : request_body(operation)
 
           {
             name: name,
@@ -125,7 +145,7 @@ module Spree
             permission: "#{read ? 'read' : 'write'}_#{scope}",
             resource_key: resource_key(controller),
             path_params: candidate[:path].scan(/\{([a-z_]+)\}/).flatten,
-            path_descriptions: path_descriptions(operation),
+            path_descriptions: path_descriptions(candidate[:path_parameters] + Array(operation['parameters'])),
             body_properties: body.fetch('properties', {}),
             body_required: Array(body['required']),
             mutating: !read,
@@ -178,12 +198,25 @@ module Spree
           [operation['summary'].to_s.strip.delete_suffix('.'), paragraph].compact_blank.join('. ')
         end
 
-        def path_descriptions(operation)
-          Array(operation['parameters']).each_with_object({}) do |parameter, result|
+        # Path-level parameters first, so an operation's own description of a
+        # segment wins.
+        def path_descriptions(parameters)
+          parameters.each_with_object({}) do |parameter, result|
             next unless parameter.is_a?(Hash) && parameter['in'] == 'path'
 
-            result[parameter['name']] = parameter['description']
+            result[parameter['name']] = parameter['description'] if parameter['description'].present?
           end
+        end
+
+        def query_schema(operation)
+          parameters = Array(operation['parameters']).select { |parameter| parameter.is_a?(Hash) && parameter['in'] == 'query' }
+          properties = parameters.to_h do |parameter|
+            [parameter['name'], json_schema(AdminDocument.inline(parameter['schema'] || {}).merge(
+              { 'description' => parameter['description'] }.compact
+            ))]
+          end
+
+          { 'properties' => properties, 'required' => parameters.select { |p| p['required'] }.map { |p| p['name'] } }
         end
 
         def request_body(operation)
@@ -209,18 +242,10 @@ module Spree
           end
         end
 
-        # [verb, OpenAPI path] => the action behind it, from the engine's
-        # routes — where an extension's admin routes are drawn too.
+        # [verb, OpenAPI path] => the action behind it.
         def route_index
-          Spree::Core::Engine.routes.routes.each_with_object({}) do |route, index|
-            controller_path = route.defaults[:controller].to_s
-            next unless controller_path.start_with?('spree/api/v3/admin')
-
-            path = route.path.spec.to_s.sub('(.:format)', '').gsub(/:([a-z_]+)/, '{\1}')
-            route.verb.to_s.split('|').each do |verb|
-              index[[verb.downcase, path]] ||= { controller: controller_class(controller_path),
-                                                 action: route.defaults[:action].to_s }
-            end
+          admin_routes.each_with_object({}) do |route, index|
+            index[[route[:verb], route[:path]]] ||= route.slice(:controller, :action)
           end
         end
 
@@ -240,9 +265,11 @@ module Spree
           model && AgentResourceMap::WITHHELD_MODELS.include?(model.name)
         end
 
+        # Keyed the way the resource map keys the model, so a tool's
+        # resource_key finds its entry there.
         def resource_key(controller)
           model = AgentResourceMap.send(:safely, controller.allocate, :model_class)
-          model ? model.model_name.element.pluralize : controller.controller_name
+          model ? AgentResourceMap.send(:key_for, model) : controller.controller_name
         end
       end
     end

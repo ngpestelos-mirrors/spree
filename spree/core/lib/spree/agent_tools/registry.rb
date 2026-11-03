@@ -62,17 +62,18 @@ module Spree
 
       # @deprecated Admin API operations are agent tools on their own, built
       #   from the OpenAPI document, so there is nothing to expose. A
-      #   workflow behind an endpoint is offered as that endpoint's tool; one
-      #   with no endpoint is not offered. Recorded and otherwise ignored
-      #   through 6.0.x, a no-op in 6.1 and removed in 7.0.
+      #   workflow behind a documented endpoint is that endpoint's tool; one
+      #   without is not offered. Recorded and otherwise ignored, and removed
+      #   in 7.0.
       #
       # @param exposures [Hash{Symbol => String, Hash}]
       # @return [self]
       def expose_workflows(**exposures)
         Spree::Deprecation.warn(
-          'Spree.admin_agent_tools.expose_workflows is deprecated and has no effect: every Admin API ' \
-          'action is an agent tool, built from its OpenAPI operation. Give a workflow an admin endpoint ' \
-          'with an rswag spec to reach agents. See docs/plans/6.0-agent-tools-from-openapi.md.'
+          'Spree.admin_agent_tools.expose_workflows is deprecated and has no effect: every documented ' \
+          'Admin API action is an agent tool, built from its OpenAPI operation. A workflow reaches agents ' \
+          'through an admin endpoint whose rswag spec is generated into the openapi/admin.yaml your gem ships. ' \
+          'See docs/plans/6.0-agent-tools-from-openapi.md.'
         )
 
         exposures.each do |dependency_key, options|
@@ -154,7 +155,17 @@ module Spree
       def operation_tool_classes
         return [] unless operations?
 
-        Spree::AgentTools::OperationCatalog.all.map { |entry| Spree::AgentTools::OperationTool.for(entry) }
+        # A registered tool keeps its name: an operation claiming the same
+        # one would make an MCP server refuse the whole list.
+        taken = registered_classes.map(&:tool_name)
+        Spree::AgentTools::OperationCatalog.all.filter_map do |entry|
+          if taken.include?(entry.name)
+            Rails.logger.warn("[Spree] agent tool #{entry.name} is registered by hand; its operation is not offered")
+            next
+          end
+
+          Spree::AgentTools::OperationTool.for(entry)
+        end
       end
 
       def operations?

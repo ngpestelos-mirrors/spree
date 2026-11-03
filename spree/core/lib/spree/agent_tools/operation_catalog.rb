@@ -129,24 +129,20 @@ module Spree
           @derived = false
         end
 
-        # Fills the catalog once, under a mutex for the reason {ResourceMap}
-        # gives: the deriver rebuilds in place, and a reader in between would
-        # see nothing.
+        # Fills the catalog once, under a mutex. The flag is set only once the
+        # deriver has finished, so a second reader waits on the mutex instead
+        # of reading a catalog the deriver has just emptied. Nothing the
+        # deriver calls reads the catalog back, so it cannot recurse.
         #
         # @return [void]
         def derive!
           return if @derived || deriver.nil?
 
           derive_mutex.synchronize do
-            return if @derived
+            next if @derived
 
+            deriver.call
             @derived = true
-            begin
-              deriver.call
-            rescue StandardError
-              @derived = false
-              raise
-            end
           end
         end
 

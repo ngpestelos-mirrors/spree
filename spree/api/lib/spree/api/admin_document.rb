@@ -16,15 +16,23 @@ module Spree
       # Where an extension keeps its generated document, relative to its root.
       EXTENSION_PATH = File.join('openapi', 'admin.yaml')
 
-      # Two documents describing the same operation or the same component
-      # differently. Raised rather than resolved: a silent override would let
-      # one gem replace another's endpoint.
-      class ConflictError < StandardError; end
+      HTTP_VERBS = %w[get post put patch delete head options].freeze
 
       class << self
         # @return [Hash] the merged document
         def document
           @document ||= load_document
+        end
+
+        # Operations or components two documents describe differently. The
+        # first document keeps them — core's, then extensions in load order —
+        # and the later one's are left out rather than silently replacing an
+        # endpoint or failing every tool; the contract spec fails on any.
+        #
+        # @return [Array<String>]
+        def conflicts
+          document
+          @conflicts
         end
 
         # Which document an operation came from, so a contract spec can check
@@ -45,6 +53,7 @@ module Spree
         def reset!
           @document = nil
           @sources = nil
+          @conflicts = nil
         end
 
         # Core's generated document: `docs/` in a source checkout, or the copy
@@ -137,6 +146,7 @@ module Spree
 
         def load_document
           @sources = {}
+          @conflicts = []
           merged = read(core_path)
           record_sources(merged, 'spree_api')
 
@@ -158,9 +168,14 @@ module Spree
           {}
         end
 
+        def conflict(message)
+          @conflicts << message
+          Rails.logger.error("[Spree] admin API documents conflict: #{message}")
+        end
+
         def record_sources(document, engine)
           Array(document['paths']).each do |path, operations|
-            operations.each_key { |verb| @sources[[path, verb.to_s]] = engine }
+            operations.each_key { |verb| @sources[[path, verb.to_s]] = engine if HTTP_VERBS.include?(verb.to_s) }
           end
         end
 
@@ -168,14 +183,18 @@ module Spree
           merged['paths'] ||= {}
           Array(addition['paths']).each do |path, operations|
             existing = merged['paths'][path] ||= {}
-            operations.each do |verb, operation|
-              if existing.key?(verb)
-                raise ConflictError,
-                      "#{verb.upcase} #{path} is documented by both #{@sources[[path, verb]]} and #{engine}"
+            operations.each do |key, value|
+              # Path-level keys (`parameters`) describe the path, not an
+              # operation, and two documents for one path share them.
+              next existing[key] ||= value unless HTTP_VERBS.include?(key)
+
+              if existing.key?(key)
+                conflict("#{key.upcase} #{path} is documented by both #{@sources[[path, key]]} and #{engine}")
+                next
               end
 
-              existing[verb] = operation
-              @sources[[path, verb]] = engine
+              existing[key] = value
+              @sources[[path, key]] = engine
             end
           end
 
@@ -183,7 +202,8 @@ module Spree
           schemas = schemas['schemas'] ||= {}
           Array(addition.dig('components', 'schemas')).each do |name, schema|
             if schemas.key?(name) && schemas[name] != schema
-              raise ConflictError, "the #{name} schema is defined differently by #{engine} and an earlier document"
+              conflict("the #{name} schema is defined differently by #{engine} and an earlier document")
+              next
             end
 
             schemas[name] = schema

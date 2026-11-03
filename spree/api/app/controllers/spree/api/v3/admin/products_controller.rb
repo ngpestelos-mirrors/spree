@@ -384,8 +384,6 @@ module Spree
 
           private
 
-          # Approving and rejecting are edits to the catalog, so they answer to
-          # the same key as any other product write.
           # Unlike bulk_status_update, which writes the column, these run the
           # status workflow, so its hooks and its event fire. A product in
           # review is refused: its next status is a decision, made through
@@ -411,6 +409,8 @@ module Spree
             end
           end
 
+          # Approving and rejecting are edits to the catalog, so they answer to
+          # the same key as any other product write.
           def run_review_workflow(workflow, **arguments)
             @resource = find_resource
             authorize!(:update, @resource)

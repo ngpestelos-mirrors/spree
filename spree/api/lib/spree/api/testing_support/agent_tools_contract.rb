@@ -29,19 +29,11 @@ RSpec.shared_examples 'an engine whose admin writes are agent tools' do |engine|
 
   let(:engine_routes) do
     root = engine.root.to_s
-    Spree::Core::Engine.routes.routes.filter_map do |route|
-      controller_path = route.defaults[:controller].to_s
-      next unless controller_path.start_with?('spree/api/v3/admin')
+    operations.admin_routes.filter_map do |route|
+      next unless operations::WRITE_VERBS.include?(route[:verb]) && !operations::CRUD_ACTIONS.include?(route[:action])
 
-      verb = route.verb.to_s.downcase
-      action = route.defaults[:action].to_s
-      next unless operations::WRITE_VERBS.include?(verb) && !operations::CRUD_ACTIONS.include?(action)
-
-      controller = "#{controller_path}_controller".camelize.safe_constantize
-      location = controller && Object.const_source_location(controller.name)&.first
-      next unless location&.start_with?(root)
-
-      [verb, route.path.spec.to_s.sub('(.:format)', '').gsub(/:([a-z_]+)/, '{\1}')]
+      location = route[:controller] && Object.const_source_location(route[:controller].name)&.first
+      [route[:verb], route[:path]] if location&.start_with?(root)
     end.uniq
   end
 

@@ -20,6 +20,8 @@ module Spree
         # @param entry [OperationCatalog::Entry]
         # @return [Class<OperationTool>]
         def for(entry)
+          # By identity: an entry is rebuilt, as a new object, whenever the
+          # catalog is, and hashing one walks its whole request schema.
           cache[entry] ||= Class.new(self) do
             self.operation = entry
 
@@ -32,7 +34,7 @@ module Spree
 
         # @return [Hash] JSON Schema for the arguments, read by the adapters
         def input_schema
-          operation.input_schema
+          @input_schema ||= operation.input_schema
         end
 
         # @return [void]
@@ -43,7 +45,7 @@ module Spree
         private
 
         def cache
-          @cache ||= {}
+          @cache ||= {}.compare_by_identity
         end
       end
 
@@ -63,11 +65,14 @@ module Spree
           return { error: "#{tool_name} needs #{unfilled.to_sentence}." }
         end
 
-        body, refusal = body_for(arguments)
+        values, refusal = body_for(arguments)
         return refusal if refusal
 
-        response = ApiDispatch.new(context).call(method: operation.verb.to_sym, path: path, body: body)
+        response = dispatch(path, values)
         return { error: response.error_message } unless response.success?
+
+        # A read opted in to the catalog answers with what it read.
+        return { summary: operation.summary, data: response.data } unless operation.mutating
 
         { summary: completed_summary(arguments, response.data), record: payload_summary(response.data),
           deprecations: notes.presence }.compact
@@ -140,9 +145,16 @@ module Spree
         nil
       end
 
-      # What travels as the body: every argument that is not a path segment,
-      # checked against the documented body so a guessed field is named back
-      # rather than dropped behind a success.
+      def dispatch(path, values)
+        dispatcher = ApiDispatch.new(context)
+        return dispatcher.call(method: :get, path: path, params: values || {}) unless operation.mutating
+
+        dispatcher.call(method: operation.verb.to_sym, path: path, body: values)
+      end
+
+      # What travels as the body, or a read's query: every argument that is
+      # not a path segment, checked against the document so a guessed field is
+      # named back rather than dropped behind a success.
       def body_for(arguments)
         body = arguments.except(*operation.path_params)
         return [nil, nil] if body.empty?
