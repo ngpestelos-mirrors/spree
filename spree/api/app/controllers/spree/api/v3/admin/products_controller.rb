@@ -392,7 +392,7 @@ module Spree
             @resource = find_resource
             authorize!(:update, @resource)
 
-            if review_status?(@resource.status)
+            if @resource.in_review?
               return render_error(
                 code: 'product_in_review',
                 message: I18n.t('spree.errors.messages.product_in_review'),

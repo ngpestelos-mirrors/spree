@@ -34,7 +34,7 @@ module Spree
           Spree::AgentTools::OperationCatalog.deriver = -> { install }
           Spree::AgentTools::OperationCatalog.stale!
           Spree::AgentTools::OperationTool.clear_cache!
-          AdminDocument.reset!
+          AdminDocument.refresh!
           AgentWriteSchemas.reset!
         end
 
@@ -42,12 +42,13 @@ module Spree
         # @return [Integer] how many operations were registered
         def install(catalog: Spree::AgentTools::OperationCatalog)
           catalog.reset!
+          @models = {}
 
-          entries = candidates.filter_map { |candidate| entry_for(candidate) }
-          aliases = legacy_entries(entries)
-          entries.each { |entry| entry.delete(:legacy_names) }
-          listed = resolve_collisions(entries.select { |entry| entry[:listed] })
-          (listed + aliases).each { |entry| catalog.register(**entry) }
+          by_route = candidates.index_by { |candidate| [candidate[:verb], candidate[:path]] }
+          included = by_route.values.select { |candidate| disposition(candidate) == :included }
+          listed = resolve_collisions(included.map { |candidate| entry_for(candidate) })
+          listed.each { |entry| catalog.register(**entry) }
+          register_aliases(catalog, by_route)
 
           listed.size
         end
@@ -114,24 +115,21 @@ module Spree
           end
         end
 
-        # The tool name an operation derives, before any `operationId`.
+        # The tool name an operation gets: its `operationId`, or the resource
+        # and the action.
         #
         # @return [String]
-        def derived_name(candidate)
-          "#{resource_key(candidate[:route][:controller])}_#{candidate[:route][:action]}"
+        def tool_name(candidate)
+          candidate[:operation]['operationId'].presence ||
+            "#{resource_key(candidate[:route][:controller])}_#{candidate[:route][:action]}"
         end
 
         private
 
         def entry_for(candidate)
-          status = disposition(candidate)
-          legacy = Spree::AgentTools::LegacyTools.names_for(candidate[:verb], candidate[:path])
-          return unless status == :included || (legacy.any? && %i[included crud].include?(status))
-
           operation = candidate[:operation]
           controller = candidate[:route][:controller]
-          name = operation['operationId'].presence || derived_name(candidate)
-          scope = scope_of(controller)
+          name = tool_name(candidate)
           read = candidate[:verb] == 'get'
           # A read takes its arguments as query parameters, a write as its body.
           body = read ? query_schema(operation) : request_body(operation)
@@ -142,38 +140,28 @@ module Spree
             path: candidate[:path],
             summary: operation['summary'].to_s,
             description: description_for(operation),
-            permission: "#{read ? 'read' : 'write'}_#{scope}",
+            permission: "#{read ? 'read' : 'write'}_#{scope_of(controller)}",
             resource_key: resource_key(controller),
             path_params: candidate[:path].scan(/\{([a-z_]+)\}/).flatten,
             path_descriptions: path_descriptions(candidate[:path_parameters] + Array(operation['parameters'])),
             body_properties: body.fetch('properties', {}),
             body_required: Array(body['required']),
-            mutating: !read,
-            listed: status == :included,
-            legacy_parameters: legacy_parameters(legacy, name),
-            legacy_names: legacy
+            legacy_parameters: Spree::AgentTools::LegacyTools.parameters_for(name, candidate[:verb], candidate[:path])
           }
         end
 
         # A 6.0.0 tool whose name is no longer derived — it pointed at a
         # create, or carried its workflow's name — stays callable through
         # 6.0.x, unlisted, under that name.
-        def legacy_entries(entries)
-          entries.flat_map do |entry|
-            entry[:legacy_names].filter_map do |old|
-              next if old == entry[:name] && entry[:listed]
+        def register_aliases(catalog, by_route)
+          # The catalog is still being filled, so it is not read back here:
+          # register_alias itself refuses a name an offered tool has.
+          Spree::AgentTools::LegacyTools::TOOLS.each do |old, tool|
+            candidate = by_route[[tool[:verb], tool[:path]]]
+            next unless candidate && %i[included crud].include?(disposition(candidate))
 
-              entry.except(:legacy_names).merge(
-                name: old, listed: false, legacy_parameters: Spree::AgentTools::LegacyTools.find(old)[:parameters]
-              )
-            end
+            catalog.register_alias(**entry_for(candidate), name: old, legacy_parameters: tool[:parameters])
           end
-        end
-
-        def legacy_parameters(legacy, name)
-          return {} unless legacy.include?(name)
-
-          Spree::AgentTools::LegacyTools.find(name)[:parameters]
         end
 
         # Two operations deriving one name: the shallower path keeps it, and
@@ -221,9 +209,7 @@ module Spree
 
         def request_body(operation)
           schema = operation.dig('requestBody', 'content', 'application/json', 'schema')
-          return {} if schema.nil?
-
-          json_schema(AdminDocument.inline(AdminDocument.resolve_schema(schema) || {}))
+          schema ? json_schema(AdminDocument.inline(schema)) : {}
         end
 
         # OpenAPI 3.0 marks a nullable field with `nullable: true`; JSON
@@ -261,15 +247,20 @@ module Spree
         # resource map withholds — offer no tools either: an action on an API
         # key or a webhook endpoint answers with the secret.
         def withheld?(controller)
-          model = AgentResourceMap.send(:safely, controller.allocate, :model_class)
+          model = model_for(controller)
           model && AgentResourceMap::WITHHELD_MODELS.include?(model.name)
         end
 
         # Keyed the way the resource map keys the model, so a tool's
         # resource_key finds its entry there.
         def resource_key(controller)
-          model = AgentResourceMap.send(:safely, controller.allocate, :model_class)
-          model ? AgentResourceMap.send(:key_for, model) : controller.controller_name
+          model = model_for(controller)
+          model ? AgentResourceMap.key_for(model) : controller.controller_name
+        end
+
+        # Once per controller per derivation: every operation it serves asks.
+        def model_for(controller)
+          (@models ||= {}).fetch(controller) { @models[controller] = AgentResourceMap.model_for(controller) }
         end
       end
     end

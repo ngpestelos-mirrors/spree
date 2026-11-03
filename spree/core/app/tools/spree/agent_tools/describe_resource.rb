@@ -84,10 +84,14 @@ module Spree
         entry.writable_attribute_names.presence
       end
 
+      # The action tools this caller is offered, by resource, worked out once
+      # per call rather than once per resource described.
       def actions_for(entry)
-        Spree::AgentTools::OperationCatalog.all.
-          select { |operation| operation.resource_key == entry.key && context.permitted?(operation.permission) }.
-          map(&:name).sort.presence
+        @actions ||= Spree.admin_agent_tools.available_for(context).
+                     grep(Spree::AgentTools::OperationTool).
+                     group_by { |tool| tool.operation.resource_key }.
+                     transform_values { |tools| tools.map(&:tool_name).sort }
+        @actions[entry.key]
       end
 
       def describe(entry, detailed:)

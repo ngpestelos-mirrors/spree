@@ -16,32 +16,28 @@ require 'spree/api/testing_support/agent_tools'
 # See docs/plans/6.0-agent-tools-from-openapi.md.
 RSpec.shared_examples 'an engine whose admin writes are agent tools' do |engine|
   operations = Spree::Api::AgentOperations
+  root = engine.root.to_s
+  defined_here = lambda do |controller|
+    controller && Object.const_source_location(controller.name)&.first&.start_with?(root)
+  end
 
-  # The admin routes this engine's own controllers serve.
+  # The admin operations this engine's own controllers serve.
   let(:engine_candidates) do
-    root = engine.root.to_s
-    operations.candidates.select do |candidate|
-      controller = candidate.dig(:route, :controller)
-      location = controller && Object.const_source_location(controller.name)&.first
-      location&.start_with?(root)
-    end
+    operations.candidates.select { |candidate| defined_here.call(candidate.dig(:route, :controller)) }
   end
 
   let(:engine_routes) do
-    root = engine.root.to_s
     operations.admin_routes.filter_map do |route|
       next unless operations::WRITE_VERBS.include?(route[:verb]) && !operations::CRUD_ACTIONS.include?(route[:action])
 
-      location = route[:controller] && Object.const_source_location(route[:controller].name)&.first
-      [route[:verb], route[:path]] if location&.start_with?(root)
+      [route[:verb], route[:path]] if defined_here.call(route[:controller])
     end.uniq
   end
 
   # The tool name each listed action derives, before collisions are settled.
   let(:included_names) do
-    engine_candidates.select { |candidate| operations.disposition(candidate) == :included }.map do |candidate|
-      candidate[:operation]['operationId'].presence || operations.derived_name(candidate)
-    end
+    engine_candidates.select { |candidate| operations.disposition(candidate) == :included }.
+      map { |candidate| operations.tool_name(candidate) }
   end
 
   it 'documents every admin action its controllers serve' do
@@ -77,7 +73,8 @@ RSpec.shared_examples 'an engine whose admin writes are agent tools' do |engine|
   end
 
   it 'names every tool the way MCP accepts' do
-    invalid = Spree::AgentTools::OperationCatalog.entries_with_aliases.map(&:name).
+    catalog = Spree::AgentTools::OperationCatalog
+    invalid = (catalog.all + catalog.aliases).map(&:name).
               reject { |name| name.match?(/\A[a-zA-Z0-9_-]{1,64}\z/) }
 
     expect(invalid).to be_empty

@@ -21,11 +21,6 @@ module Spree
   #     end
   #   end
 class AgentTool
-    # Declarations live in class attributes rather than plain class-level
-    # instance variables so a subclass inherits them. Subclassing a tool to
-    # tweak it is the documented extension path, and with bare ivars the
-    # subclass would come back `mutating? == false` — writing to the store
-    # immediately, with no approval card, no permission gate and no argument
     # The parameter every generic resource tool takes for a resource that
     # lives under another record, such as an order's items.
     PARENT_ID_DESCRIPTION = 'For a resource reached through another record (describe_resource names ' \

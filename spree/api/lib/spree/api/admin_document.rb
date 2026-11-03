@@ -46,8 +46,18 @@ module Spree
           @sources[[path, verb.to_s.downcase]]
         end
 
-        # Forgets the parsed document, so the next reader loads it again —
-        # after a code reload, or in a spec that added a document.
+        # Forgets the parsed document only when a document file changed, so a
+        # code reload in development does not re-parse a megabyte of generated
+        # YAML that no edit to Ruby could have changed.
+        #
+        # @return [void]
+        def refresh!
+          current = signature
+          reset! unless current == @signature
+          @signature = current
+        end
+
+        # Forgets the parsed document, so the next reader loads it again.
         #
         # @return [void]
         def reset!
@@ -114,7 +124,7 @@ module Spree
             schema.map { |item| inline(item, seen) }
           when Hash
             return inline_reference(schema, seen) if schema.key?('$ref')
-            return inline(merge_all_of(schema['allOf'], 0) || {}, seen) if schema.key?('allOf')
+            return inline(merge_all_of(schema['allOf'], 0), seen) if schema.key?('allOf')
 
             schema.transform_values { |value| inline(value, seen) }
           else
@@ -123,6 +133,10 @@ module Spree
         end
 
         private
+
+        def signature
+          ([core_path] + extension_paths.values).map { |path| [path.to_s, (File.mtime(path) if File.exist?(path))] }
+        end
 
         def inline_reference(schema, seen)
           reference = schema['$ref']

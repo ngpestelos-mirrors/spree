@@ -24,14 +24,16 @@ module Spree
           ) { |**arguments| adapter.respond(tool, arguments) }
         end
 
-        # The tool's arguments as JSON Schema, from the tool itself: declared
-        # params for a hand-written tool, the operation's schema for one built
-        # from the Admin API document.
+        # The tool's arguments as the gem's schema object, built once per tool
+        # class. Building one deep-copies and validates the schema, and an
+        # action tool's schema is a whole request body: done on every request
+        # for every tool, it was most of what answering `tools/list` cost.
+        # Weakly held, so a class replaced on a code reload is let go.
         #
         # @param tool [Spree::AgentTool]
-        # @return [Hash]
+        # @return [MCP::Tool::InputSchema]
         def input_schema(tool)
-          tool.class.input_schema
+          schemas[tool.class] ||= ::MCP::Tool::InputSchema.new(tool.class.input_schema)
         end
 
         # Clients that gate confirmation on annotations rather than on a
@@ -75,6 +77,10 @@ module Spree
         end
 
         private
+
+        def schemas
+          @schemas ||= ObjectSpace::WeakMap.new
+        end
 
         # A line the client can show beside its confirmation prompt, and the
         # model can read without parsing the structured payload.

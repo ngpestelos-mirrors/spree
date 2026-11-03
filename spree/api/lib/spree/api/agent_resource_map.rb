@@ -199,6 +199,24 @@ module Spree
           }
         end
 
+        # The plural the resource is addressed by, taken from the model so two
+        # controllers serving the same model (a nested one and a top-level one)
+        # agree on it. The operation catalog keys its tools the same way.
+        #
+        # @param model [Class]
+        # @return [String]
+        def key_for(model)
+          model.model_name.element.pluralize
+        end
+
+        # The model a controller serves, or nil for one that serves none.
+        #
+        # @param controller [Class]
+        # @return [Class, nil]
+        def model_for(controller)
+          safely(controller.allocate, :model_class)
+        end
+
         private
 
         # What the controller does with its own collection. A controller that
@@ -313,12 +331,6 @@ module Spree
           false
         end
 
-        # The plural the resource is addressed by, taken from the model so two
-        # controllers serving the same model (a nested one and a top-level one)
-        # agree on it.
-        def key_for(model)
-          model.model_name.element.pluralize
-        end
 
         # `Spree::Base.for_store` falls back to the bare class for a model with
         # no Store association, which would hand this store's agent every

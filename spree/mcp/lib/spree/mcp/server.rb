@@ -13,16 +13,15 @@ module Spree
       # 6.0.x. They answer `tools/call` but are not in `tools/list`: a client
       # that learned one keeps working, and a new one is shown only the
       # current names. The gem lists `@tools` and looks a call up through
-      # `#tools`, which is what this adds to.
+      # `#tools`, so an unknown name is resolved there, only when called.
       class AdminServer < ::MCP::Server
-        # @param aliases [Array<Class<MCP::Tool>>]
-        def aliases=(aliases)
-          @aliases = aliases.to_h { |tool| [tool.name_value, tool] }
-        end
+        # @param resolver [#call] name => MCP tool class, or nil
+        attr_writer :resolver
 
         def tools
-          listed = super
-          @aliases.present? ? @aliases.merge(listed) : listed
+          resolver = @resolver
+          lookup = Hash.new { |_tools, name| resolver&.call(name) }
+          lookup.merge!(super)
         end
       end
 
@@ -73,7 +72,10 @@ module Spree
             server_context: { store_id: context.store.id }
           )
 
-          server.aliases = Spree.admin_agent_tools.aliases_for(context).map { |tool| ToolAdapter.build(tool) }
+          server.resolver = lambda do |name|
+            tool = Spree.admin_agent_tools.find_for(name, context)
+            ToolAdapter.build(tool) if tool
+          end
           register_resources(server, context)
           server
         end

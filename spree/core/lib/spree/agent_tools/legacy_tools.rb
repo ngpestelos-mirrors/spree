@@ -11,8 +11,8 @@ module Spree
     # another.
     #
     # A parameter mapped to nil never reached the endpoint in 6.0.0 either; it
-    # is ignored, and the result says so. `attributes` is merged into the body,
-    # which is what 6.0.0 did with it.
+    # is ignored, and the result says so. One mapped to `:merge` was a hash of
+    # fields, merged into the body, which is what 6.0.0 did with it.
     #
     # Removed in 6.1, with the names that are no longer listed.
     # See docs/plans/6.0-agent-tools-from-openapi.md.
@@ -184,28 +184,27 @@ module Spree
         },
         'variants_create' => {
           verb: 'post', path: '/api/v3/admin/products/{product_id}/variants',
-          parameters: { 'product' => 'product_id', 'attributes' => nil }
+          parameters: { 'product' => 'product_id', 'attributes' => :merge }
         },
         'variants_update' => {
           verb: 'patch', path: '/api/v3/admin/products/{product_id}/variants/{id}',
-          parameters: { 'variant' => 'id', 'attributes' => nil }
+          parameters: { 'variant' => 'id', 'attributes' => :merge }
         }
       }.freeze
 
       class << self
-        # @param name [String]
-        # @return [Hash, nil] `{verb:, path:, parameters:}`
-        def find(name)
-          TOOLS[name.to_s]
-        end
-
-        # The 6.0.0 tool that ran this operation, if one did.
+        # The 6.0.0 parameters of a tool that keeps its name, when it still
+        # runs the same operation.
         #
+        # @param name [String]
         # @param verb [String]
         # @param path [String] the OpenAPI path
-        # @return [Array<String>] old tool names
-        def names_for(verb, path)
-          TOOLS.filter_map { |name, tool| name if tool[:verb] == verb.to_s.downcase && tool[:path] == path }
+        # @return [Hash{String => String, Symbol, nil}]
+        def parameters_for(name, verb, path)
+          tool = TOOLS[name.to_s]
+          return {} unless tool && tool[:verb] == verb.to_s && tool[:path] == path
+
+          tool[:parameters]
         end
       end
     end

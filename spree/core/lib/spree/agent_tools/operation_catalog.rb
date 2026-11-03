@@ -34,15 +34,32 @@ module Spree
       #   @return [Array<String>]
       # @!attribute path_descriptions
       #   @return [Hash{String => String}]
-      # @!attribute mutating
-      #   @return [Boolean] false only for a read opted in to the catalog
       # @!attribute listed
       #   @return [Boolean] false for a 6.0.0 name kept callable through 6.0.x
       # @!attribute legacy_parameters
       #   @return [Hash{String => String, nil}] 6.0.0 parameter => its name now
       Entry = Struct.new(:name, :verb, :path, :description, :summary, :permission, :resource_key,
                          :path_params, :body_properties, :body_required, :path_descriptions,
-                         :mutating, :listed, :legacy_parameters, keyword_init: true) do
+                         :listed, :legacy_parameters, keyword_init: true) do
+        # @return [Boolean] a read opted in to the catalog
+        def read?
+          verb == 'get'
+        end
+
+        # @return [Boolean] whether the call changes the store
+        def mutating
+          !read?
+        end
+
+        # The resource each parent segment names, read off the path itself —
+        # `/orders/{order_id}/items` names `orders` — so a renamed nested
+        # route still points at the right resource.
+        #
+        # @return [Hash{String => String}] segment => resource key
+        def parent_keys
+          path.scan(%r{/([a-z_]+)/\{([a-z_]+_id)\}}).to_h { |key, segment| [segment, key] }
+        end
+
         # @param values [Hash{String => String}] path segment => value
         # @return [String, nil] nil while a segment is unfilled
         def path_for(values)
@@ -68,8 +85,8 @@ module Spree
             [segment, { 'type' => 'string', 'description' => path_descriptions[segment] }.compact]
           end.merge(body_properties)
 
-          aliased = legacy_parameters.values.compact
-          parents = path_params.size > 1 ? path_params - [path_params.last] : []
+          aliased = legacy_parameters.values.grep(String)
+          parents = parent_keys.keys
           # A 6.0.0 name no longer listed keeps the 6.0.0 contract, which
           # required nothing the operation's body now does.
           required = listed ? (path_params + body_required).uniq - aliased - parents : []
@@ -89,7 +106,15 @@ module Spree
         # @return [Array<Entry>] the operations offered by name
         def all
           derive!
-          entries.values.select(&:listed)
+          entries.values
+        end
+
+        # The 6.0.0 names kept callable through 6.0.x, which no listing shows.
+        #
+        # @return [Array<Entry>]
+        def aliases
+          derive!
+          alias_entries.values
         end
 
         # A tool by its name, including a 6.0.0 name no longer listed.
@@ -98,13 +123,7 @@ module Spree
         # @return [Entry, nil]
         def find(name)
           derive!
-          entries[name.to_s]
-        end
-
-        # @return [Array<Entry>] every entry, the unlisted ones included
-        def entries_with_aliases
-          derive!
-          entries.values
+          entries[name.to_s] || alias_entries[name.to_s]
         end
 
         # Registers one operation. Re-registering a name replaces it, because
@@ -112,14 +131,23 @@ module Spree
         #
         # @return [Entry]
         def register(**attributes)
-          entry = Entry.new(listed: true, mutating: true, legacy_parameters: {},
-                            body_properties: {}, body_required: [], path_descriptions: {}, **attributes)
+          entry = build(listed: true, **attributes)
           entries[entry.name] = entry
+        end
+
+        # Registers a 6.0.0 name for an operation, callable but not listed.
+        # A name an offered operation already has keeps that operation.
+        #
+        # @return [Entry, nil]
+        def register_alias(**attributes)
+          entry = build(**attributes, listed: false)
+          alias_entries[entry.name] = entry unless entries.key?(entry.name)
         end
 
         # @return [void]
         def reset!
           @entries = {}
+          @alias_entries = {}
         end
 
         # Marks the catalog for rebuilding on its next read.
@@ -148,8 +176,16 @@ module Spree
 
         private
 
+        def build(**attributes)
+          Entry.new(legacy_parameters: {}, body_properties: {}, body_required: [], path_descriptions: {}, **attributes)
+        end
+
         def entries
           @entries ||= {}
+        end
+
+        def alias_entries
+          @alias_entries ||= {}
         end
 
         def derive_mutex

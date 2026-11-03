@@ -26,8 +26,8 @@ module Spree
         def agent_tool(enabled = true, reason: nil)
           raise ArgumentError, 'an operation opted out of agent tools needs a reason' if !enabled && reason.blank?
 
-          metadata[:operation][:'x-spree-agent'] = enabled
-          metadata[:operation][:'x-spree-agent-reason'] = reason if reason
+          metadata[:operation][Spree::Api::AgentOperations::AGENT_KEY.to_sym] = enabled
+          metadata[:operation][Spree::Api::AgentOperations::REASON_KEY.to_sym] = reason if reason
         end
       end
     end

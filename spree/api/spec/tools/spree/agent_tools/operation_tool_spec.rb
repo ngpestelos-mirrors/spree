@@ -14,7 +14,8 @@ RSpec.describe Spree::AgentTools::OperationTool do
   end
 
   def every_schema
-    Spree::AgentTools::OperationCatalog.entries_with_aliases.map(&:input_schema)
+    catalog = Spree::AgentTools::OperationCatalog
+    (catalog.all + catalog.aliases).map(&:input_schema)
   end
 
   describe 'the catalog' do
@@ -142,7 +143,7 @@ RSpec.describe Spree::AgentTools::OperationTool do
         name: 'promotion_rules_types', verb: 'get', path: '/api/v3/admin/promotion_rules/types',
         description: 'List promotion rule types', summary: 'List promotion rule types',
         permission: 'read_promotions', resource_key: 'promotion_rules', path_params: [],
-        body_properties: {}, body_required: [], path_descriptions: {}, mutating: false,
+        body_properties: {}, body_required: [], path_descriptions: {},
         listed: true, legacy_parameters: {}
       )
     end

@@ -76,14 +76,7 @@ module Spree
           'See docs/plans/6.0-agent-tools-from-openapi.md.'
         )
 
-        exposures.each do |dependency_key, options|
-          options = { permission: options } if options.is_a?(String) || options.is_a?(Symbol)
-          @exposed_workflows[dependency_key.to_sym] = {
-            permission: options.fetch(:permission).to_s,
-            except: Array(options[:except]).map(&:to_sym),
-            summary: options[:summary]
-          }
-        end
+        @exposed_workflows.merge!(exposures.transform_keys(&:to_sym))
         self
       end
 
@@ -93,7 +86,8 @@ module Spree
 
       # @return [Array<Class<Spree::AgentTool>>]
       def to_a
-        registered_classes + operation_tool_classes
+        registered = registered_classes
+        registered + operation_tool_classes(registered.map(&:tool_name))
       end
 
       # A tool this caller may use, by name — including a 6.0.0 name that is
@@ -104,27 +98,16 @@ module Spree
       # @param context [Spree::AgentTools::Context]
       # @return [Spree::AgentTool, nil]
       def find_for(name, context)
-        found = available_for(context).find { |tool| tool.tool_name == name.to_s }
-        return found if found
+        name = name.to_s
+        tool_class = registered_classes.find { |klass| klass.tool_name == name }
+        if tool_class.nil? && operations?
+          entry = Spree::AgentTools::OperationCatalog.find(name)
+          tool_class = entry && Spree::AgentTools::OperationTool.for(entry)
+        end
+        return if tool_class.nil? || (tool_class.try(:audience) && tool_class.audience != audience)
 
-        entry = operations? && Spree::AgentTools::OperationCatalog.find(name)
-        return unless entry
-
-        tool = Spree::AgentTools::OperationTool.for(entry).new(context)
+        tool = tool_class.new(context)
         tool if tool.permitted?
-      end
-
-      # The 6.0.0 names kept callable through 6.0.x, as tools this caller may
-      # use. Not offered in a listing.
-      #
-      # @param context [Spree::AgentTools::Context]
-      # @return [Array<Spree::AgentTool>]
-      def aliases_for(context)
-        return [] unless operations?
-
-        Spree::AgentTools::OperationCatalog.entries_with_aliases.reject(&:listed).
-          map { |entry| Spree::AgentTools::OperationTool.for(entry).new(context) }.
-          select(&:permitted?)
       end
 
       # Tools this caller may actually use, instantiated for their context.
@@ -152,19 +135,15 @@ module Spree
 
       # One tool per operation the catalog lists. Operations are back-office
       # actions, so only the admin surface offers them.
-      def operation_tool_classes
+      #
+      # A registered tool keeps its name: an operation claiming the same one
+      # would make an MCP server refuse the whole list. The contract spec
+      # fails on such a clash, so nothing is logged on each listing.
+      def operation_tool_classes(taken)
         return [] unless operations?
 
-        # A registered tool keeps its name: an operation claiming the same
-        # one would make an MCP server refuse the whole list.
-        taken = registered_classes.map(&:tool_name)
         Spree::AgentTools::OperationCatalog.all.filter_map do |entry|
-          if taken.include?(entry.name)
-            Rails.logger.warn("[Spree] agent tool #{entry.name} is registered by hand; its operation is not offered")
-            next
-          end
-
-          Spree::AgentTools::OperationTool.for(entry)
+          Spree::AgentTools::OperationTool.for(entry) unless taken.include?(entry.name)
         end
       end
 

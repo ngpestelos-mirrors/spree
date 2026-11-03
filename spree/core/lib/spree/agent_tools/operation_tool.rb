@@ -71,10 +71,12 @@ module Spree
         response = dispatch(path, values)
         return { error: response.error_message } unless response.success?
 
-        # A read opted in to the catalog answers with what it read.
-        return { summary: operation.summary, data: response.data } unless operation.mutating
+        # A read opted in to the catalog answers with what it read, filtered
+        # like every other record that leaves for a model.
+        return { summary: operation.summary, data: sanitized(response.data) } if operation.read?
 
-        { summary: completed_summary(arguments, response.data), record: payload_summary(response.data),
+        record = payload_summary(response.data)
+        { summary: [operation.summary, record&.dig(:title)].compact.join(' '), record: record,
           deprecations: notes.presence }.compact
       end
 
@@ -103,9 +105,9 @@ module Spree
           next result[name] = value unless renames.key?(name)
 
           target = renames[name]
-          if name == 'attributes' && value.is_a?(Hash)
-            notes << 'attributes is deprecated: send its fields as arguments of their own.'
-            result.merge!(value.transform_keys(&:to_s)) { |_key, given, _merged| given }
+          if target == :merge
+            notes << "#{name} is deprecated: send its fields as arguments of their own."
+            result.merge!(value.to_h.transform_keys(&:to_s)) { |_key, given, _merged| given }
           elsif target.nil?
             notes << "#{name} is not something #{tool_name} sets, and was ignored."
           else
@@ -122,7 +124,7 @@ module Spree
       # resource map, under the caller's store. Only a record the caller may
       # read is consulted; anything else stays unfilled and is asked for.
       def derive_parents(segments)
-        missing = segments.select { |_segment, value| value.blank? }.keys
+        missing = operation.parent_keys.keys.select { |segment| segments[segment].blank? }
         return if missing.empty?
 
         records = segments.compact_blank.to_a.reverse.filter_map { |segment, id| record_for(segment, id) }
@@ -136,7 +138,7 @@ module Spree
       end
 
       def record_for(segment, id)
-        key = segment == 'id' ? operation.resource_key : segment.delete_suffix('_id').pluralize
+        key = segment == 'id' ? operation.resource_key : operation.parent_keys[segment]
         entry = key && ResourceMap.find(key)
         return if entry.nil? || !context.permitted?(entry.permission)
 
@@ -147,7 +149,7 @@ module Spree
 
       def dispatch(path, values)
         dispatcher = ApiDispatch.new(context)
-        return dispatcher.call(method: :get, path: path, params: values || {}) unless operation.mutating
+        return dispatcher.call(method: :get, path: path, params: values || {}) if operation.read?
 
         dispatcher.call(method: operation.verb.to_sym, path: path, body: values)
       end
@@ -167,23 +169,19 @@ module Spree
                 accepted_arguments: (operation.path_params + accepted).sort }]
       end
 
-      def completed_summary(arguments, data)
-        label = data.is_a?(Hash) ? (data['number'] || data['name'] || data['id']) : nil
-        return summary(arguments) if label.blank?
-
-        "#{operation.summary} #{label}"
-      end
-
-      # The record the endpoint returned, compacted the way a record read
-      # from the map is.
+      # The record the endpoint returned, compacted and filtered the way a
+      # record read from the map is.
       def payload_summary(data)
         return unless data.is_a?(Hash)
 
-        entry = ResourceMap.all.find { |candidate| candidate.key == data['object'] } ||
-                (operation.resource_key && ResourceMap.find(operation.resource_key))
-        return data.slice('id').presence if entry.nil?
+        entry = operation.resource_key && ResourceMap.find(operation.resource_key)
+        return sanitized(data).slice('id').presence if entry.nil?
 
         RecordSummary.from_payload(entry: entry, payload: data)
+      end
+
+      def sanitized(data)
+        RecordSummary.sanitize(data, operation.resource_key)
       end
     end
   end
