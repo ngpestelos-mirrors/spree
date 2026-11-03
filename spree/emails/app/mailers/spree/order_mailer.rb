@@ -24,6 +24,17 @@ module Spree
       deliver_order_email(to: @order.email, locale: @order.locale, payment_url: @checkout_payment_url)
     end
 
+    # The link a guest asked for from "find my order". Carries the order
+    # token, so it is built here and never serialized, and it goes only to the
+    # address the order was placed with.
+    def lookup_email(order_id)
+      @order = Spree::Order.complete.find(order_id)
+      @current_store = @order.store
+      @order_url = append_token(URI.join(@current_store.storefront_url, "/orders/#{@order.prefixed_id}").to_s, @order.token)
+
+      deliver_order_email(to: @order.email, locale: @order.locale, order_url: @order_url)
+    end
+
     private
 
     def deliver_order_email(to:, locale: nil, **assigns)
