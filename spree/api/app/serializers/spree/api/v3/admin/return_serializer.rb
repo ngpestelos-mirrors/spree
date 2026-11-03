@@ -9,8 +9,7 @@ module Spree
 
           without_formatted_money
 
-          typelize memo: [:string, nullable: true],
-                   metadata: 'Record<string, unknown>',
+          typelize metadata: 'Record<string, unknown>',
                    documents: "Array<{ kind: string; url: string }>",
                    stock_location_id: [:string, nullable: true],
                    created_by_id: [:string, nullable: true],
@@ -18,7 +17,7 @@ module Spree
                    refund_total: [:string, nullable: false],
                    refund_tax_total: [:string, nullable: false]
 
-          attributes :memo, :metadata, created_at: :iso8601, updated_at: :iso8601
+          attributes :metadata, created_at: :iso8601, updated_at: :iso8601
 
           prefixed_id_attributes :stock_location
 

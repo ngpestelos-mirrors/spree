@@ -10,6 +10,8 @@ module Spree
           # Whether a customer may file a claim is store policy and belongs in
           # a `claims.create.validate` hook rather than here.
           class ClaimsController < Store::ResourceController
+            include Spree::Api::V3::Store::CustomerPostSale
+
             request_params 'CreateClaimParams', action: :create do |body|
               body.attribute :items, :array, required: true do |item|
                 item.attribute :line_item_id, :id, required: true
@@ -47,29 +49,6 @@ module Spree
 
             def collection_includes
               [{ claim_line_items: :variant }]
-            end
-
-            def set_parent
-              cart_pk = Spree::Cart.decode_own_prefixed_id(params[:order_id])
-              @parent = if cart_pk
-                          order_scope.find_by!(cart_id: cart_pk)
-                        else
-                          order_scope.find_by_prefix_id!(params[:order_id])
-                        end
-            end
-
-            # Authorization is the parent order's — see the returns
-            # controller for why a second record-level check is wrong here.
-            def set_resource
-              @resource = find_resource
-            end
-
-            def order_scope
-              storefront_access_policy.scope(current_store.orders.complete, token: order_token)
-            end
-
-            def create_params
-              @create_params ||= params.permit(*declared_permitted_attributes)
             end
 
             private

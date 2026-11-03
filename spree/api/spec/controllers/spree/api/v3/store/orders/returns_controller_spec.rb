@@ -26,13 +26,16 @@ RSpec.describe Spree::Api::V3::Store::Orders::ReturnsController, type: :controll
       expect(json_response['number']).to start_with('RET')
     end
 
+    # The memo is the customer's own note, so it comes back to them.
     it 'does not expose staff-only fields to the customer' do
       post :create, params: {
         order_id: order.to_param,
+        memo: 'Too small',
         items: [{ fulfillment_item_id: fulfillment_item.prefixed_id, quantity: 1 }]
       }, as: :json
 
-      expect(json_response).not_to have_key('memo')
+      expect(json_response['memo']).to eq('Too small')
+      expect(json_response).not_to have_key('metadata')
       expect(json_response).not_to have_key('created_at')
       expect(json_response).not_to have_key('created_by_id')
     end

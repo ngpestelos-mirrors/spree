@@ -12,9 +12,15 @@ module Spree
                  approved_at: [:string, nullable: true],
                  received_at: [:string, nullable: true],
                  fulfilled_at: [:string, nullable: true],
-                 canceled_at: [:string, nullable: true]
+                 canceled_at: [:string, nullable: true],
+                 memo: [:string, nullable: true], cancelable: :boolean
 
-        attributes :number, :status
+        # The memo is the customer's own note on the request.
+        attributes :number, :status, :memo
+
+        # Whether the customer may still withdraw the request: only before the
+        # merchant has acted on it.
+        attribute :cancelable, &:requested?
 
         prefixed_id_attributes :order, :reason
 

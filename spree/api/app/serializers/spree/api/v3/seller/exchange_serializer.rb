@@ -14,10 +14,7 @@ module Spree
           # No guest price gating here, so the inherited money fields are always present.
           typelize price_difference: [:string, nullable: false]
 
-          typelize memo: [:string, nullable: true],
-                   stock_location_id: [:string, nullable: true]
-
-          attributes :memo
+          typelize stock_location_id: [:string, nullable: true]
 
           prefixed_id_attributes :stock_location
 

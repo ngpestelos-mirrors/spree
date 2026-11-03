@@ -13,9 +13,33 @@ module Spree
                  approved_at: [:string, nullable: true],
                  received_at: [:string, nullable: true],
                  refunded_at: [:string, nullable: true],
-                 canceled_at: [:string, nullable: true]
+                 canceled_at: [:string, nullable: true],
+                 memo: [:string, nullable: true],
+                 cancelable: :boolean, label_available: :boolean,
+                 tracking: [:string, nullable: true], tracking_url: [:string, nullable: true]
 
-        attributes :number, :status
+        # The memo is the customer's own note on the request.
+        attributes :number, :status, :memo
+
+        # Whether the customer may still withdraw the request: only before the
+        # merchant has acted on it.
+        attribute :cancelable, &:requested?
+
+        # Whether a prepaid label is waiting to be downloaded from the label
+        # endpoint. The label row stays off the wire — its cost and provider
+        # ids are merchant data.
+        attribute :label_available do |return_record|
+          return_record.active_shipping_label.present?
+        end
+
+        # Where the parcel coming back is, as the carrier last reported it.
+        attribute :tracking do |return_record|
+          return_record.deliveries.last&.tracking_number
+        end
+
+        attribute :tracking_url do |return_record|
+          return_record.deliveries.last&.resolved_tracking_url
+        end
 
         prefixed_id_attributes :order, :reason
 

@@ -10,13 +10,12 @@ module Spree
           # No guest price gating here, so the inherited money fields are always present.
           typelize price_difference: [:string, nullable: false]
 
-          typelize memo: [:string, nullable: true],
-                   metadata: 'Record<string, unknown>',
+          typelize metadata: 'Record<string, unknown>',
                    stock_location_id: [:string, nullable: true],
                    created_by_id: [:string, nullable: true],
                    created_by_type: [:string, nullable: true, enum: Spree::Actor::BUILT_IN_KINDS, enum_type_name: 'ActorKind']
 
-          attributes :memo, :metadata, created_at: :iso8601, updated_at: :iso8601
+          attributes :metadata, created_at: :iso8601, updated_at: :iso8601
 
           prefixed_id_attributes :stock_location
 

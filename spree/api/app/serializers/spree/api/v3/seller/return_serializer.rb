@@ -15,12 +15,9 @@ module Spree
         class ReturnSerializer < V3::ReturnSerializer
           without_formatted_money(:seller)
 
-          typelize memo: [:string, nullable: true],
-                   stock_location_id: [:string, nullable: true],
+          typelize stock_location_id: [:string, nullable: true],
                    refund_total: [:string, nullable: false],
                    refund_tax_total: [:string, nullable: false]
-
-          attributes :memo
 
           prefixed_id_attributes :stock_location
 
