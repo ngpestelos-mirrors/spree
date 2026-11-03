@@ -898,6 +898,7 @@ en:
         invalid_refund_method: must be one of original_payment, store_credit
         invalid_seller_requirement: is not a registered seller requirement
         invalid_status: Invalid status
+        product_in_review: A product awaiting review is approved or rejected, not moved to another status
         invalid_storefront_access: is not a valid storefront access level
         items_not_a_list: items must be a list of objects
         missing_row_type: 'is required (expected one of: %{types})'

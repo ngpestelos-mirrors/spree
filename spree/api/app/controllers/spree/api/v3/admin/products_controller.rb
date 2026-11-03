@@ -156,6 +156,27 @@ module Spree
             run_review_workflow(Spree.product_reject_workflow, reason: params[:reason])
           end
 
+          # PATCH /api/v3/admin/products/:id/activate
+          #
+          # Puts one product on sale.
+          def activate
+            run_status_workflow(Spree.product_activate_workflow)
+          end
+
+          # PATCH /api/v3/admin/products/:id/archive
+          #
+          # Takes one product off sale for good.
+          def archive
+            run_status_workflow(Spree.product_archive_workflow)
+          end
+
+          # PATCH /api/v3/admin/products/:id/draft
+          #
+          # Takes one product off sale, back to a draft.
+          def draft
+            run_status_workflow(Spree.product_draft_workflow)
+          end
+
           # POST /api/v3/admin/products/bulk_status_update
           # Body: { ids: [...], status: 'draft' | 'active' | 'archived' }
           def bulk_status_update
@@ -365,6 +386,31 @@ module Spree
 
           # Approving and rejecting are edits to the catalog, so they answer to
           # the same key as any other product write.
+          # Unlike bulk_status_update, which writes the column, these run the
+          # status workflow, so its hooks and its event fire. A product in
+          # review is refused: its next status is a decision, made through
+          # approve or reject (docs/plans/6.0-seller-product-submission.md).
+          def run_status_workflow(workflow)
+            @resource = find_resource
+            authorize!(:update, @resource)
+
+            if review_status?(@resource.status)
+              return render_error(
+                code: 'product_in_review',
+                message: I18n.t('spree.errors.messages.product_in_review'),
+                status: :unprocessable_content
+              )
+            end
+
+            result = workflow.call(product: @resource)
+
+            if result.success?
+              render json: serialize_resource(@resource.reload)
+            else
+              render_service_error(@resource.errors.presence || result.error)
+            end
+          end
+
           def run_review_workflow(workflow, **arguments)
             @resource = find_resource
             authorize!(:update, @resource)
