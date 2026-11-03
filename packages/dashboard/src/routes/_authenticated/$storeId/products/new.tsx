@@ -16,6 +16,7 @@ import {
   type ProductFormValues,
   prepareVariantsTaxForProductSave,
   productFormSchema,
+  ReturnsCard,
   SEOCard,
   Slot,
   StatusCard,
@@ -237,6 +238,7 @@ function NewProductPage() {
               <PublishingCard form={form} seedDefaultChannel />
               <CategorizationCard form={form} />
               <TaxCard form={form} />
+              <ReturnsCard form={form} />
               <SEOCard form={form} />
               <Slot name="product.form_sidebar" context={{ product: undefined, mode: 'new' }} />
             </>
