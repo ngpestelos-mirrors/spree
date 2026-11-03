@@ -62,6 +62,10 @@ RSpec.describe Spree::AgentTools::OperationTool do
       expect(properties.keys).to include('id', 'cancel_reason_id', 'cancel_note', 'notify_customer')
     end
 
+    it 'keeps a segment required when it is the record the call is about' do
+      expect(tool('catalog_quantity_rules_upsert').class.input_schema['required']).to include('catalog_id')
+    end
+
     it 'carries a nested body shape whole' do
       prices = tool('prices_bulk_upsert').class.input_schema.dig('properties', 'prices')
 
@@ -198,6 +202,19 @@ RSpec.describe Spree::AgentTools::OperationTool do
       expect(names).not_to include('variants_create')
       expect(result[:error]).to be_nil
       expect(Spree::Variant.where(sku: sku)).to exist
+    end
+
+    it 'ignores an attributes argument that is not a hash, and says so' do
+      product = create(:product, store: store)
+
+      old = Spree.admin_agent_tools.find_for('variants_create', context)
+      result = old.call(product: product.prefixed_id, attributes: '{"sku":"X1"}')
+
+      expect(result[:deprecations]).to include(a_string_including('attributes', 'ignored'))
+    end
+
+    it 'names the record on the approval line when called by old names' do
+      expect(tool('orders_cancel').summary(order: 'or_123')).to eq('Cancel an order or_123')
     end
 
     it 'fills a parent segment from the record an old parameter named' do

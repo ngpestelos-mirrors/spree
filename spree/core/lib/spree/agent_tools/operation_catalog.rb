@@ -51,13 +51,22 @@ module Spree
           !read?
         end
 
-        # The resource each parent segment names, read off the path itself —
+        # The resource each `{x_id}` segment names, read off the path itself —
         # `/orders/{order_id}/items` names `orders` — so a renamed nested
         # route still points at the right resource.
         #
         # @return [Hash{String => String}] segment => resource key
-        def parent_keys
+        def segment_keys
           path.scan(%r{/([a-z_]+)/\{([a-z_]+_id)\}}).to_h { |key, segment| [segment, key] }
+        end
+
+        # The segments a call may leave out, read off the record a later
+        # segment names. The innermost is the record the call is about, never
+        # one to read off another.
+        #
+        # @return [Hash{String => String}] segment => resource key
+        def parent_keys
+          segment_keys.except(path_params.last)
         end
 
         # @param values [Hash{String => String}] path segment => value

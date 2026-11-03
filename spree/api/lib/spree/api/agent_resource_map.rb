@@ -331,7 +331,6 @@ module Spree
           false
         end
 
-
         # `Spree::Base.for_store` falls back to the bare class for a model with
         # no Store association, which would hand this store's agent every
         # store's rows. A model that defines its own `for_store` has made a

@@ -138,13 +138,23 @@ module Spree
       #
       # A registered tool keeps its name: an operation claiming the same one
       # would make an MCP server refuse the whole list. The contract spec
-      # fails on such a clash, so nothing is logged on each listing.
+      # fails on such a clash; at runtime it is logged, once per name.
       def operation_tool_classes(taken)
         return [] unless operations?
 
         Spree::AgentTools::OperationCatalog.all.filter_map do |entry|
-          Spree::AgentTools::OperationTool.for(entry) unless taken.include?(entry.name)
+          next Spree::AgentTools::OperationTool.for(entry) unless taken.include?(entry.name)
+
+          warn_shadowed(entry.name)
+          nil
         end
+      end
+
+      def warn_shadowed(name)
+        @shadowed ||= Set.new
+        return unless @shadowed.add?(name)
+
+        Rails.logger.warn("[Spree] agent tool #{name} is registered by hand; the operation of that name is not offered")
       end
 
       def operations?

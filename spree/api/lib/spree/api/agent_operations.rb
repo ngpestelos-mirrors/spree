@@ -48,7 +48,7 @@ module Spree
           included = by_route.values.select { |candidate| disposition(candidate) == :included }
           listed = resolve_collisions(included.map { |candidate| entry_for(candidate) })
           listed.each { |entry| catalog.register(**entry) }
-          register_aliases(catalog, by_route)
+          register_aliases(catalog, by_route, listed.to_set { |entry| entry[:name] })
 
           listed.size
         end
@@ -153,10 +153,12 @@ module Spree
         # A 6.0.0 tool whose name is no longer derived — it pointed at a
         # create, or carried its workflow's name — stays callable through
         # 6.0.x, unlisted, under that name.
-        def register_aliases(catalog, by_route)
-          # The catalog is still being filled, so it is not read back here:
-          # register_alias itself refuses a name an offered tool has.
+        def register_aliases(catalog, by_route, listed_names)
+          # The catalog is still being filled, so the names already offered
+          # are passed in rather than read back from it.
           Spree::AgentTools::LegacyTools::TOOLS.each do |old, tool|
+            next if listed_names.include?(old)
+
             candidate = by_route[[tool[:verb], tool[:path]]]
             next unless candidate && %i[included crud].include?(disposition(candidate))
 

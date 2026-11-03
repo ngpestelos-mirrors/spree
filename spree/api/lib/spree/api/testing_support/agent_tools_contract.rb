@@ -66,10 +66,26 @@ RSpec.shared_examples 'an engine whose admin writes are agent tools' do |engine|
     expect(unexplained).to be_empty
   end
 
+  # Across every engine, not only this one: an extension's action deriving
+  # a core name would otherwise lose to the shallower path, quietly.
   it 'derives a distinct tool name for every action' do
+    every_name = operations.candidates.select { |candidate| operations.disposition(candidate) == :included }.
+                 map { |candidate| operations.tool_name(candidate) }
+    duplicated = every_name.tally.select { |name, count| count > 1 && included_names.include?(name) }.keys
 
-    duplicated = included_names.tally.select { |_name, count| count > 1 }.keys
     expect(duplicated).to be_empty, "Give these operations an operationId: #{duplicated.join(', ')}"
+  end
+
+  # A hand-registered tool keeps its name, so an operation deriving the same
+  # one would vanish from every agent surface.
+  it 'claims no name a hand-written tool already has' do
+    hand_written = Spree.admin_agent_tools.send(:registered_classes).map(&:tool_name)
+
+    expect(included_names & hand_written).to be_empty
+  end
+
+  it 'merges its document into core\'s without a conflict' do
+    expect(Spree::Api::AdminDocument.conflicts).to be_empty
   end
 
   it 'names every tool the way MCP accepts' do
@@ -81,7 +97,6 @@ RSpec.shared_examples 'an engine whose admin writes are agent tools' do |engine|
   end
 
   it 'gives every tool a summary and a permission the catalog knows' do
-
     faults = included_names.filter_map do |name|
       entry = Spree::AgentTools::OperationCatalog.find(name)
       next "#{name}: not registered" if entry.nil?

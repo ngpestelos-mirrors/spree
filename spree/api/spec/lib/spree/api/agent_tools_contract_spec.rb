@@ -15,8 +15,8 @@ RSpec.describe 'agent tool contract' do
     Spree::Api::AgentResourceMap.controllers.filter_map do |controller|
       next unless controller.include?(Spree::Api::V3::Admin::RoleGrantGuard)
 
-      model = Spree::Api::AgentResourceMap.send(:safely, controller.allocate, :model_class)
-      model && model.model_name.element.pluralize
+      model = Spree::Api::AgentResourceMap.model_for(controller)
+      model && Spree::Api::AgentResourceMap.key_for(model)
     end
   end
 
@@ -24,10 +24,10 @@ RSpec.describe 'agent tool contract' do
   # scopes, which the derivation deliberately makes read-only.
   def contested_keys
     by_key = Spree::Api::AgentResourceMap.controllers.each_with_object(Hash.new { |h, k| h[k] = [] }) do |controller, result|
-      model = Spree::Api::AgentResourceMap.send(:safely, controller.allocate, :model_class)
+      model = Spree::Api::AgentResourceMap.model_for(controller)
       next if model.nil? || controller._scoped_resource.blank?
 
-      result[model.model_name.element.pluralize] << controller._scoped_resource
+      result[Spree::Api::AgentResourceMap.key_for(model)] << controller._scoped_resource
     end
 
     by_key.select { |_key, scopes| scopes.uniq.size > 1 }.keys
@@ -102,7 +102,7 @@ RSpec.describe 'agent tool contract' do
     # wins and the resource stays read-only.
     it 'resolves a resource served under two scopes to the narrower, read-only' do
       by_model = Spree::Api::AgentResourceMap.controllers.each_with_object(Hash.new { |h, k| h[k] = [] }) do |controller, result|
-        model = Spree::Api::AgentResourceMap.send(:safely, controller.allocate, :model_class)
+        model = Spree::Api::AgentResourceMap.model_for(controller)
         next if model.nil? || controller._scoped_resource.blank?
 
         result[model.name] << "read_#{controller._scoped_resource}"
@@ -176,7 +176,7 @@ RSpec.describe 'agent tool contract' do
       expect(guarded).not_to be_empty, 'expected the anti-amplification guard to be in use somewhere'
 
       writable = guarded.filter_map do |controller|
-        model = Spree::Api::AgentResourceMap.send(:safely, controller.allocate, :model_class)
+        model = Spree::Api::AgentResourceMap.model_for(controller)
         next if model.nil?
 
         entry = Spree::AgentTools::ResourceMap.all.find { |candidate| candidate.model_name == model.name }

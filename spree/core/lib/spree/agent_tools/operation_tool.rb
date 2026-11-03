@@ -76,7 +76,8 @@ module Spree
         return { summary: operation.summary, data: sanitized(response.data) } if operation.read?
 
         record = payload_summary(response.data)
-        { summary: [operation.summary, record&.dig(:title)].compact.join(' '), record: record,
+        named = record&.dig(:title).presence || record&.dig(:id).presence || record&.dig('id').presence
+        { summary: named ? "#{operation.summary} #{named}" : summary(arguments), record: record,
           deprecations: notes.presence }.compact
       end
 
@@ -86,7 +87,7 @@ module Spree
       # @param arguments [Hash]
       # @return [String]
       def summary(arguments)
-        arguments = arguments.transform_keys(&:to_s)
+        arguments, = map_legacy_arguments(arguments.transform_keys(&:to_s))
         named = operation.path_params.filter_map { |segment| arguments[segment] }
         [operation.summary, named.reverse.join(' ').presence].compact.join(' ')
       end
@@ -105,10 +106,10 @@ module Spree
           next result[name] = value unless renames.key?(name)
 
           target = renames[name]
-          if target == :merge
+          if target == :merge && value.is_a?(Hash)
             notes << "#{name} is deprecated: send its fields as arguments of their own."
-            result.merge!(value.to_h.transform_keys(&:to_s)) { |_key, given, _merged| given }
-          elsif target.nil?
+            result.merge!(value.transform_keys(&:to_s)) { |_key, given, _merged| given }
+          elsif target.nil? || target == :merge
             notes << "#{name} is not something #{tool_name} sets, and was ignored."
           else
             notes << "#{name} is deprecated: use #{target}."
@@ -138,7 +139,7 @@ module Spree
       end
 
       def record_for(segment, id)
-        key = segment == 'id' ? operation.resource_key : operation.parent_keys[segment]
+        key = segment == 'id' ? operation.resource_key : operation.segment_keys[segment]
         entry = key && ResourceMap.find(key)
         return if entry.nil? || !context.permitted?(entry.permission)
 

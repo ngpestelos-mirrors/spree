@@ -87,10 +87,10 @@ module Spree
       # The action tools this caller is offered, by resource, worked out once
       # per call rather than once per resource described.
       def actions_for(entry)
-        @actions ||= Spree.admin_agent_tools.available_for(context).
-                     grep(Spree::AgentTools::OperationTool).
-                     group_by { |tool| tool.operation.resource_key }.
-                     transform_values { |tools| tools.map(&:tool_name).sort }
+        @actions ||= Spree.admin_agent_tools.to_a.grep(->(klass) { klass < Spree::AgentTools::OperationTool }).
+                     select { |klass| context.permitted?(klass.permission) }.
+                     group_by { |klass| klass.operation.resource_key }.
+                     transform_values { |classes| classes.map(&:tool_name).sort }
         @actions[entry.key]
       end
 

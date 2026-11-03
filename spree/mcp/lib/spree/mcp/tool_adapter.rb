@@ -28,7 +28,8 @@ module Spree
         # class. Building one deep-copies and validates the schema, and an
         # action tool's schema is a whole request body: done on every request
         # for every tool, it was most of what answering `tools/list` cost.
-        # Weakly held, so a class replaced on a code reload is let go.
+        # Keyed weakly by the tool class, so a class replaced on a code reload
+        # is let go with its schema.
         #
         # @param tool [Spree::AgentTool]
         # @return [MCP::Tool::InputSchema]
@@ -79,7 +80,7 @@ module Spree
         private
 
         def schemas
-          @schemas ||= ObjectSpace::WeakMap.new
+          @schemas ||= ObjectSpace::WeakKeyMap.new
         end
 
         # A line the client can show beside its confirmation prompt, and the
