@@ -15,6 +15,9 @@ module Spree
         class ReturnSerializer < V3::ReturnSerializer
           without_formatted_money(:seller)
 
+          # A seller reads their own goods coming back, never the buyer's order.
+          _attributes.delete(:order)
+
           typelize memo: [:string, nullable: true],
                    stock_location_id: [:string, nullable: true],
                    refund_total: [:string, nullable: false],

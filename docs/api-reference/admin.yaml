@@ -16710,7 +16710,6 @@ paths:
                 - id: exch_UkLWZg9DAJ
                   number: EX1001
                   status: requested
-                  memo: Wrong size
                   cancelable: true
                   order_id: or_UkLWZg9DAJ
                   reason_id:
@@ -16719,6 +16718,7 @@ paths:
                   received_at:
                   fulfilled_at:
                   canceled_at:
+                  memo: Wrong size
                   metadata: {}
                   created_at: '2026-01-15T12:00:00.000Z'
                   updated_at: '2026-01-15T12:00:00.000Z'
@@ -16875,7 +16875,6 @@ paths:
                 - id: exch_UkLWZg9DAJ
                   number: EX1001
                   status: requested
-                  memo: Wrong size
                   cancelable: true
                   order_id: or_UkLWZg9DAJ
                   reason_id:
@@ -16884,6 +16883,7 @@ paths:
                   received_at:
                   fulfilled_at:
                   canceled_at:
+                  memo: Wrong size
                   metadata: {}
                   created_at: '2026-01-15T12:00:00.000Z'
                   updated_at: '2026-01-15T12:00:00.000Z'
@@ -16970,7 +16970,6 @@ paths:
                 id: exch_gbHJdmfrXB
                 number: EX1002
                 status: requested
-                memo: Wrong size
                 cancelable: true
                 order_id: or_gbHJdmfrXB
                 reason_id:
@@ -16979,6 +16978,7 @@ paths:
                 received_at:
                 fulfilled_at:
                 canceled_at:
+                memo: Wrong size
                 metadata: {}
                 created_at: '2026-01-15T12:00:00.000Z'
                 updated_at: '2026-01-15T12:00:00.000Z'
@@ -17055,7 +17055,6 @@ paths:
                 id: exch_UkLWZg9DAJ
                 number: EX1001
                 status: requested
-                memo: Customer wants a larger size
                 cancelable: true
                 order_id: or_UkLWZg9DAJ
                 reason_id: rar_UkLWZg9DAJ
@@ -17064,6 +17063,7 @@ paths:
                 received_at:
                 fulfilled_at:
                 canceled_at:
+                memo: Customer wants a larger size
                 metadata: {}
                 created_at: '2026-01-15T12:00:00.000Z'
                 updated_at: '2026-01-15T12:00:00.000Z'
@@ -17140,7 +17140,6 @@ paths:
                 id: exch_UkLWZg9DAJ
                 number: EX1001
                 status: received
-                memo: Wrong size
                 cancelable: false
                 order_id: or_UkLWZg9DAJ
                 reason_id:
@@ -17149,6 +17148,7 @@ paths:
                 received_at: '2026-01-15T12:00:00Z'
                 fulfilled_at:
                 canceled_at:
+                memo: Wrong size
                 metadata: {}
                 created_at: '2026-01-15T12:00:00.000Z'
                 updated_at: '2026-01-15T12:00:00.000Z'
@@ -17223,7 +17223,6 @@ paths:
                 id: exch_UkLWZg9DAJ
                 number: EX1001
                 status: fulfilled
-                memo: Wrong size
                 cancelable: false
                 order_id: or_UkLWZg9DAJ
                 reason_id:
@@ -17232,6 +17231,7 @@ paths:
                 received_at: '2026-01-15T12:00:00Z'
                 fulfilled_at: '2026-01-15T12:00:00Z'
                 canceled_at:
+                memo: Wrong size
                 metadata: {}
                 created_at: '2026-01-15T12:00:00.000Z'
                 updated_at: '2026-01-15T12:00:00.000Z'
@@ -17307,9 +17307,6 @@ paths:
                 id: exch_UkLWZg9DAJ
                 number: EX1001
                 status: canceled
-                memo: |-
-                  Wrong size
-                  Customer kept the original
                 cancelable: false
                 order_id: or_UkLWZg9DAJ
                 reason_id:
@@ -17318,6 +17315,9 @@ paths:
                 received_at:
                 fulfilled_at:
                 canceled_at: '2026-01-15T12:00:00Z'
+                memo: |-
+                  Wrong size
+                  Customer kept the original
                 metadata: {}
                 created_at: '2026-01-15T12:00:00.000Z'
                 updated_at: '2026-01-15T12:00:00.000Z'
@@ -20824,7 +20824,6 @@ paths:
                 - id: ret_UkLWZg9DAJ
                   number: RET1001
                   status: requested
-                  memo: Item did not fit
                   cancelable: true
                   label_available: false
                   tracking:
@@ -20838,6 +20837,7 @@ paths:
                   refunded_at:
                   canceled_at:
                   external_references: {}
+                  memo: Item did not fit
                   metadata: {}
                   created_at: '2026-01-15T12:00:00.000Z'
                   updated_at: '2026-01-15T12:00:00.000Z'
@@ -20999,7 +20999,6 @@ paths:
                 - id: ret_UkLWZg9DAJ
                   number: RET1001
                   status: requested
-                  memo: Item did not fit
                   cancelable: true
                   label_available: false
                   tracking:
@@ -21013,6 +21012,7 @@ paths:
                   refunded_at:
                   canceled_at:
                   external_references: {}
+                  memo: Item did not fit
                   metadata: {}
                   created_at: '2026-01-15T12:00:00.000Z'
                   updated_at: '2026-01-15T12:00:00.000Z'
@@ -21101,7 +21101,6 @@ paths:
                 id: ret_gbHJdmfrXB
                 number: RET1002
                 status: requested
-                memo: Too small
                 cancelable: true
                 label_available: false
                 tracking:
@@ -21115,6 +21114,7 @@ paths:
                 refunded_at:
                 canceled_at:
                 external_references: {}
+                memo: Too small
                 metadata: {}
                 created_at: '2026-01-15T12:00:00.000Z'
                 updated_at: '2026-01-15T12:00:00.000Z'
@@ -21207,7 +21207,6 @@ paths:
                 id: ret_UkLWZg9DAJ
                 number: RET1001
                 status: requested
-                memo: Customer shipped it back with a tracking number
                 cancelable: true
                 label_available: false
                 tracking:
@@ -21221,6 +21220,7 @@ paths:
                 refunded_at:
                 canceled_at:
                 external_references: {}
+                memo: Customer shipped it back with a tracking number
                 metadata: {}
                 created_at: '2026-01-15T12:00:00.000Z'
                 updated_at: '2026-01-15T12:00:00.000Z'
@@ -21302,7 +21302,6 @@ paths:
                 id: ret_UkLWZg9DAJ
                 number: RET1001
                 status: received
-                memo: Item did not fit
                 cancelable: false
                 label_available: false
                 tracking:
@@ -21316,6 +21315,7 @@ paths:
                 refunded_at:
                 canceled_at:
                 external_references: {}
+                memo: Item did not fit
                 metadata: {}
                 created_at: '2026-01-15T12:00:00.000Z'
                 updated_at: '2026-01-15T12:00:00.000Z'
@@ -21396,7 +21396,6 @@ paths:
                 id: ret_UkLWZg9DAJ
                 number: RET1001
                 status: refunded
-                memo: Item did not fit
                 cancelable: false
                 label_available: false
                 tracking:
@@ -21410,6 +21409,7 @@ paths:
                 refunded_at: '2026-01-15T12:00:00Z'
                 canceled_at:
                 external_references: {}
+                memo: Item did not fit
                 metadata: {}
                 created_at: '2026-01-15T12:00:00.000Z'
                 updated_at: '2026-01-15T12:00:00.000Z'
@@ -21490,9 +21490,6 @@ paths:
                 id: ret_UkLWZg9DAJ
                 number: RET1001
                 status: canceled
-                memo: |-
-                  Item did not fit
-                  Customer changed their mind
                 cancelable: false
                 label_available: false
                 tracking:
@@ -21506,6 +21503,9 @@ paths:
                 refunded_at:
                 canceled_at: '2026-01-15T12:00:00Z'
                 external_references: {}
+                memo: |-
+                  Item did not fit
+                  Customer changed their mind
                 metadata: {}
                 created_at: '2026-01-15T12:00:00.000Z'
                 updated_at: '2026-01-15T12:00:00.000Z'
@@ -63344,9 +63344,6 @@ components:
           - type: string
           description: The values listed are the built-in ones; extensions may add
             more.
-        memo:
-          type: string
-          nullable: true
         cancelable:
           type: boolean
         order_id:
@@ -63377,6 +63374,9 @@ components:
           type: array
           items:
             "$ref": "#/components/schemas/ExchangeLineItem"
+        memo:
+          type: string
+          nullable: true
         metadata:
           type: object
         created_at:
@@ -63411,7 +63411,6 @@ components:
       - id
       - number
       - status
-      - memo
       - cancelable
       - order_id
       - reason_id
@@ -63420,6 +63419,7 @@ components:
       - received_at
       - fulfilled_at
       - canceled_at
+      - memo
       - metadata
       - created_at
       - updated_at
@@ -66894,6 +66894,8 @@ components:
           nullable: true
         within_withdrawal_period:
           type: boolean
+        returns_eligibility:
+          type: object
         shipping_eq_billing_address:
           type: boolean
         cart_id:
@@ -70118,9 +70120,6 @@ components:
           - type: string
           description: The values listed are the built-in ones; extensions may add
             more.
-        memo:
-          type: string
-          nullable: true
         cancelable:
           type: boolean
         label_available:
@@ -70167,6 +70166,9 @@ components:
             "$ref": "#/components/schemas/CustomField"
         external_references:
           type: object
+        memo:
+          type: string
+          nullable: true
         metadata:
           type: object
         created_at:
@@ -70217,7 +70219,6 @@ components:
       - id
       - number
       - status
-      - memo
       - cancelable
       - label_available
       - tracking
@@ -70231,6 +70232,7 @@ components:
       - refunded_at
       - canceled_at
       - external_references
+      - memo
       - metadata
       - created_at
       - updated_at
