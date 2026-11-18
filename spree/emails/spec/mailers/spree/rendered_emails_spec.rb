@@ -25,6 +25,18 @@ describe 'rendered emails', type: :mailer do
     end
   end
 
+  # Three ordered, two announced, one received. The refunded row must show
+  # the credited count, not the announced or ordered quantity.
+  let(:refunded_return) do
+    order = create(:shipped_order, store: store)
+    order.line_items.first.update_columns(quantity: 3)
+    order.fulfillment_items.sole.update_columns(quantity: 3)
+
+    create(:received_return, order: order, store: store).tap do |return_record|
+      return_record.return_line_items.sole.update!(quantity: 2, received_quantity: 1)
+    end
+  end
+
   let(:emails) do
     {
       'order confirmation' => Spree::OrderMailer.confirm_email(order),
@@ -67,5 +79,13 @@ describe 'rendered emails', type: :mailer do
     end
 
     expect(emails['order confirmation'].html_part.decoded).to include('&lt;a href=&quot;https://evil.test&quot;&gt;')
+  end
+
+  it 'shows the credited quantity on a refund, not the ordered or announced quantity' do
+    html = Spree::ReturnMailer.refunded_email(refunded_return).html_part.decoded
+
+    expect(html).to include('1 x')
+    expect(html).not_to include('2 x')
+    expect(html).not_to include('3 x')
   end
 end

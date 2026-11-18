@@ -14,8 +14,8 @@ module Spree
       end
 
       many :returned_items,
-           source: proc { return_line_items.filter_map(&:line_item).uniq },
-           resource: Spree::Emails::LineItemSerializer
+           source: proc { return_line_items.select(&:line_item) },
+           resource: Spree::Emails::ReturnedItemSerializer
     end
   end
 end

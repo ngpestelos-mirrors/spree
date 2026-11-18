@@ -23,6 +23,12 @@ Rails.application.config.after_initialize do
     price: :string, amount: :string, url: [:string, nullable: true],
     image_url: [:string, nullable: true]
   )
+  Spree::Emails::ReturnedItemSerializer.typelize(
+    id: :string, name: :string, slug: :string, quantity: :number, sku: [:string, nullable: true], options_text: [:string, nullable: true],
+    price: :string, amount: :string, url: [:string, nullable: true],
+    image_url: [:string, nullable: true],
+    option_values: [:EmailOptionValue, multi: true]
+  )
   Spree::Emails::StoreSerializer.typelize(
     id: :string, name: :string, address: [:string, nullable: true], mail_from_address: :string, default_currency: :string,
     default_locale: :string, url: :string, support_email: :string, logo_url: [:string, nullable: true],
