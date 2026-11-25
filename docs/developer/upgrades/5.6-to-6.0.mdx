@@ -1487,8 +1487,10 @@ An order's `fulfillment_status` also keeps `partial` and `backorder`.
 | `balance_due` | `none` (nothing paid), `authorized` (authorized, not yet captured) or `partially_paid` |
 | `paid` | `paid`, or `partially_refunded` / `refunded` when the order has refunds |
 | `credit_owed` | `overcharged` |
-| `void` | `voided` |
+| `void` | `voided` (canceled, payments voided) or `refunded` (canceled, captured money refunded) |
 | `failed` | `none` |
+
+Earlier 6.0 releases recorded a canceled order that was refunded in full as `voided`. To correct those orders, run `Spree::Order.where(status: 'canceled', payment_status: 'voided').find_each(&:update_statuses!)`.
 
 ### Deprecated fields still work until 6.5
 
